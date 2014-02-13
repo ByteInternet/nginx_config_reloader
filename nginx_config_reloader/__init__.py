@@ -6,6 +6,7 @@ import subprocess
 import signal
 import os
 import logging
+import logging.handlers
 import shutil
 import sys
 
@@ -22,9 +23,9 @@ IGNORE_FILES = (
     '.*',
     ERROR_FILE,
 )
+SYSLOG_SOCKET = '/dev/log'
 
-
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class TrackModifications(pyinotify.ProcessEvent):
@@ -37,7 +38,7 @@ class TrackModifications(pyinotify.ProcessEvent):
 
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in IGNORE_FILES):
-            logging.info("%s detected on %s" % (event.maskname, event.name))
+            logger.info("%s detected on %s" % (event.maskname, event.name))
             self.apply_new_config()
 
     def apply_new_config(self):
@@ -45,6 +46,7 @@ class TrackModifications(pyinotify.ProcessEvent):
         try:
             subprocess.check_output([NGINX, '-t'], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
+            logger.info("Config check failed")
             self.restore_old_custom_config_dir()
             self.write_error_file(e.output)
             return False
@@ -78,8 +80,9 @@ class TrackModifications(pyinotify.ProcessEvent):
     def reload_nginx(self):
         pid = self.get_pid()
         if not pid:
-            logging.info("Not reloading, nginx not running")
+            logger.warning("Not reloading, nginx not running")
         else:
+            logger.info("Reloading nginx config")
             os.kill(pid, signal.SIGHUP)
 
 
@@ -90,8 +93,7 @@ def wait_loop(daemonize=True):
     wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
 
     try:
-        outfile = os.path.basename(sys.argv[0]) + '.log'
-        notifier.loop(daemonize=daemonize, stdout=outfile, stderr=outfile)
+        notifier.loop(daemonize=daemonize)
     except pyinotify.NotifierError as err:
         print err
 
@@ -103,13 +105,21 @@ def main():
     args = parser.parse_args()
 
     if args.test:
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+        handler.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+
         wait_loop(False)
+
     if args.daemon:
-        logging.basicConfig(level=logging.INFO,
-                            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+        handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
+        handler.setFormatter(logging.Formatter('%(name)-12s %(levelname)-8s %(message)s'))
+        handler.setLevel(logging.INFO)
+        logger.addHandler(handler)
+
         wait_loop(True)
+
     else:
         tm = TrackModifications()
         tm.apply_new_config()
