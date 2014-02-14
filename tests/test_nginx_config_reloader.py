@@ -108,6 +108,16 @@ class TestConfigReloader(unittest.TestCase):
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
+    def test_that_apply_new_config_doesnt_fail_on_failing_copy(self):
+        copytree = self._patch('shutil.copytree')
+        copytree.side_effect = OSError('Directory doesnt exist')
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        tm.apply_new_config()
+
+        self.assertEqual(len(self.test_config.mock_calls), 0)
+        self.assertEqual(len(self.kill.mock_calls), 0)
+
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')
 

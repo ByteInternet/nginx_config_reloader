@@ -57,7 +57,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.apply_new_config()
 
     def apply_new_config(self):
-        self.install_new_custom_config_dir()
+        try:
+            self.install_new_custom_config_dir()
+        except OSError:
+            self.logger.error("Installation of custom config failed")
+            return False
+
         try:
             subprocess.check_output([NGINX, '-t'], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
