@@ -62,8 +62,11 @@ class TrackModifications(pyinotify.ProcessEvent):
         return True
 
     def get_pid(self):
-        with open(NGINX_PID_FILE, 'r') as f:
-            return int(f.read())
+        try:
+            with open(NGINX_PID_FILE, 'r') as f:
+                return int(f.read())
+        except (IOError, ValueError):
+            return None
 
     def write_error_file(self, error):
         with open(os.path.join(DIR_TO_WATCH, ERROR_FILE), 'w') as f:

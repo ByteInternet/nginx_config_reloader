@@ -135,6 +135,22 @@ class TestConfigReloader(unittest.TestCase):
         return os.path.join(self.dest, name)
 
 
+class TestGetPid(unittest.TestCase):
+
+    def test_that_get_pid_returns_none_if_theres_no_pid_file(self):
+        with mock.patch('__builtin__.open', mock.mock_open()) as m:
+            m.side_effect = IOError('No such file or directory')
+
+            tm = nginx_config_reloader.TrackModifications()
+            self.assertIsNone(tm.get_pid())
+
+    def test_that_get_pid_returns_none_if_pidfile_doesnt_contain_pid(self):
+        with mock.patch('__builtin__.open', mock.mock_open(read_data='')):
+
+            tm = nginx_config_reloader.TrackModifications()
+            self.assertIsNone(tm.get_pid())
+
+
 class Event:
     def __init__(self, name):
         self.name = name
