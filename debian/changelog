@@ -1,3 +1,9 @@
+nginx-config-reloader (20140214.131840) unstable; urgency=low
+
+  * Add init script
+
+ -- Maarten van Schaik <maarten@byte.nl>  Fri, 14 Feb 2014 13:18:43 +0100
+
 nginx-config-reloader (20140214.120430) unstable; urgency=low
 
   * Initial release.
