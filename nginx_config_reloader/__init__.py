@@ -9,6 +9,7 @@ import logging
 import logging.handlers
 import shutil
 import sys
+import time
 
 
 DIR_TO_WATCH = '/data/web/nginx'
@@ -38,10 +39,17 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger = logger
 
     def process_IN_DELETE(self, event):
-        self.handle_event(event)
+        if not event.dir:  # Will also capture IN_DELETE_SELF
+            self.handle_event(event)
 
     def process_IN_CLOSE_WRITE(self, event):
         self.handle_event(event)
+
+    def process_IN_IGNORED(self, event):
+        raise ListenTargetTerminated
+
+    def process_IN_MOVE_SELF(self, event):
+        raise ListenTargetTerminated
 
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in IGNORE_FILES):
@@ -98,16 +106,29 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             f.write(error)
 
 
+class ListenTargetTerminated(BaseException):
+    pass
+
+
 def wait_loop(daemonize=True, logger=None):
     wm = pyinotify.WatchManager()
     handler = NginxConfigReloader(logger=logger)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
-    wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
 
-    try:
-        notifier.loop(daemonize=daemonize)
-    except pyinotify.NotifierError as err:
-        logger.critical(err)
+    while True:
+        while not os.path.exists(DIR_TO_WATCH):
+            logger.warning("Configuration dir %s not found, waiting..." % DIR_TO_WATCH)
+            time.sleep(5)
+
+        wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
+
+        try:
+            logger.info("Listening for changes to %s" % DIR_TO_WATCH)
+            notifier.loop(daemonize=daemonize)
+        except pyinotify.NotifierError as err:
+            logger.critical(err)
+        except ListenTargetTerminated:
+            logger.warning("Configuration dir list, waiting for it to reappear")
 
 
 def main():
