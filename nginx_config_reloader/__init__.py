@@ -19,7 +19,7 @@ NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
 
 BACKUP_CONFIG_DIR = CUSTOM_CONFIG_DIR + '_bak'
-IGNORE_FILES = (
+IGNORE_FILES = (  # glob patterns
     '.*',
     '*~',
     ERROR_FILE,
@@ -29,7 +29,7 @@ SYSLOG_SOCKET = '/dev/log'
 logger = logging.getLogger(__name__)
 
 
-class TrackModifications(pyinotify.ProcessEvent):
+class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def my_init(self, logger=None):
         if not logger:
@@ -61,17 +61,6 @@ class TrackModifications(pyinotify.ProcessEvent):
         self.reload_nginx()
         return True
 
-    def get_pid(self):
-        try:
-            with open(NGINX_PID_FILE, 'r') as f:
-                return int(f.read())
-        except (IOError, ValueError):
-            return None
-
-    def write_error_file(self, error):
-        with open(os.path.join(DIR_TO_WATCH, ERROR_FILE), 'w') as f:
-            f.write(error)
-
     def install_new_custom_config_dir(self):
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
         shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
@@ -88,24 +77,35 @@ class TrackModifications(pyinotify.ProcessEvent):
         shutil.move(BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR)
 
     def reload_nginx(self):
-        pid = self.get_pid()
+        pid = self.get_nginx_pid()
         if not pid:
             self.logger.warning("Not reloading, nginx not running")
         else:
             self.logger.info("Reloading nginx config")
             os.kill(pid, signal.SIGHUP)
 
+    def get_nginx_pid(self):
+        try:
+            with open(NGINX_PID_FILE, 'r') as f:
+                return int(f.read())
+        except (IOError, ValueError):
+            return None
+
+    def write_error_file(self, error):
+        with open(os.path.join(DIR_TO_WATCH, ERROR_FILE), 'w') as f:
+            f.write(error)
+
 
 def wait_loop(daemonize=True, logger=None):
     wm = pyinotify.WatchManager()
-    handler = TrackModifications(logger=logger)
+    handler = NginxConfigReloader(logger=logger)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
     wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
 
     try:
         notifier.loop(daemonize=daemonize)
     except pyinotify.NotifierError as err:
-        print err
+        logger.critical(err)
 
 
 def main():
@@ -131,7 +131,7 @@ def main():
         wait_loop(daemonize=True, logger=logger)
 
     else:
-        tm = TrackModifications()
+        tm = NginxConfigReloader()
         tm.apply_new_config()
 
 

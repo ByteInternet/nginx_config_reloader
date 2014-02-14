@@ -11,7 +11,7 @@ import nginx_config_reloader
 class TestConfigReloader(unittest.TestCase):
 
     def setUp(self):
-        self.get_pid = self._patch('nginx_config_reloader.TrackModifications.get_pid')
+        self.get_pid = self._patch('nginx_config_reloader.NginxConfigReloader.get_nginx_pid')
         self.get_pid.return_value = 42
 
         self.source = mkdtemp()
@@ -31,14 +31,23 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_moves_files_to_dest_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
+        tm.apply_new_config()
+
+        contents = self._read_file(self._dest('myfile'))
+        self.assertEqual(contents, 'config contents')
+
+    def test_that_apply_new_config_keeps_files_in_source_dir(self):
+        self._write_file(self._source('myfile'), 'config contents')
+
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         contents = self._read_file(self._source('myfile'))
         self.assertEqual(contents, 'config contents')
 
     def test_that_apply_new_config_sends_hup_to_nginx(self):
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
@@ -48,7 +57,7 @@ class TestConfigReloader(unittest.TestCase):
         self._write_file(self._dest('conffile'), 'working config')
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         contents = self._read_file(self._dest('conffile'))
@@ -57,7 +66,7 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_doesnt_hup_nginx_if_config_check_fails(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         self.assertEqual(len(self.kill.mock_calls), 0)
@@ -65,7 +74,7 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_writes_error_message_to_source_dir(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops!')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
@@ -74,7 +83,7 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_doesnt_kill_if_no_pidfile(self):
         self.get_pid.return_value = None
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         self.assertEqual(len(self.kill.mock_calls), 0)
@@ -82,7 +91,7 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self._dest(nginx_config_reloader.ERROR_FILE)))
@@ -90,25 +99,25 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_files_starting_with_dot_are_not_moved_to_dest_dir(self):
         self._write_file(self._source('.config.swp'), 'asdf')
 
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self._dest('.config.swp')))
 
     def test_that_handle_event_applies_config(self):
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.handle_event(Event('some_file'))
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
     def test_that_handle_event_doesnt_apply_config_on_change_of_error_file(self):
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.handle_event(Event(nginx_config_reloader.ERROR_FILE))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
     def test_that_handle_event_doesnt_apply_config_on_change_of_invisible_file(self):
-        tm = nginx_config_reloader.TrackModifications()
+        tm = nginx_config_reloader.NginxConfigReloader()
         tm.handle_event(Event('.config.swp'))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
@@ -137,18 +146,23 @@ class TestConfigReloader(unittest.TestCase):
 
 class TestGetPid(unittest.TestCase):
 
+    def test_that_get_pid_returns_pid_from_pidfile(self):
+        with mock.patch('__builtin__.open', mock.mock_open(read_data='42')):
+            tm = nginx_config_reloader.NginxConfigReloader()
+            self.assertEqual(tm.get_nginx_pid(), 42)
+
     def test_that_get_pid_returns_none_if_theres_no_pid_file(self):
         with mock.patch('__builtin__.open', mock.mock_open()) as m:
             m.side_effect = IOError('No such file or directory')
 
-            tm = nginx_config_reloader.TrackModifications()
-            self.assertIsNone(tm.get_pid())
+            tm = nginx_config_reloader.NginxConfigReloader()
+            self.assertIsNone(tm.get_nginx_pid())
 
     def test_that_get_pid_returns_none_if_pidfile_doesnt_contain_pid(self):
         with mock.patch('__builtin__.open', mock.mock_open(read_data='')):
 
-            tm = nginx_config_reloader.TrackModifications()
-            self.assertIsNone(tm.get_pid())
+            tm = nginx_config_reloader.NginxConfigReloader()
+            self.assertIsNone(tm.get_nginx_pid())
 
 
 class Event:
