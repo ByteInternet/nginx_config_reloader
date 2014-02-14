@@ -1,3 +1,10 @@
+nginx-config-reloader (20140214.154334) unstable; urgency=low
+
+  * Clarify some things after review
+  * Fix crash when dest dir doesn't exist yet
+
+ -- Maarten van Schaik <maarten@byte.nl>  Fri, 14 Feb 2014 15:43:38 +0100
+
 nginx-config-reloader (20140214.131840) unstable; urgency=low
 
   * Add init script
