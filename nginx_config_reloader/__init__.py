@@ -21,6 +21,7 @@ ERROR_FILE = 'nginx_error_output'
 BACKUP_CONFIG_DIR = CUSTOM_CONFIG_DIR + '_bak'
 IGNORE_FILES = (
     '.*',
+    '*~',
     ERROR_FILE,
 )
 SYSLOG_SOCKET = '/dev/log'
