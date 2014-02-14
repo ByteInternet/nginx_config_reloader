@@ -1,3 +1,10 @@
+nginx-config-reloader (20140214.172601) unstable; urgency=low
+
+  * Handle removal or nonexistence of config dir
+  * Handle crash on failed dir copy
+
+ -- Maarten van Schaik <maarten@byte.nl>  Fri, 14 Feb 2014 17:26:05 +0100
+
 nginx-config-reloader (20140214.154334) unstable; urgency=low
 
   * Clarify some things after review
