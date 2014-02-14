@@ -1,0 +1,5 @@
+nginx-config-reloader (20140214.101006) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Maarten van Schaik <maarten@byte.nl>  Fri, 14 Feb 2014 10:11:09 +0100
