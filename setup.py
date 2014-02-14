@@ -14,5 +14,6 @@ setup(
             'nginx_config_reloader = nginx_config_reloader:main'
         ]
     },
-    install_requires=['pyinotify>0.9.2'],
+    install_requires=['pyinotify>"0.9.2'],
+    test_suite="tests",
 )
