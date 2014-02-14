@@ -37,6 +37,16 @@ class TestConfigReloader(unittest.TestCase):
         contents = self._read_file(self._dest('myfile'))
         self.assertEqual(contents, 'config contents')
 
+    def test_that_apply_config_moves_files_to_dest_dir_if_it_doesnt_yet_exist(self):
+        self._write_file(self._source('myfile'), 'config contents')
+        shutil.rmtree(self.dest, ignore_errors=True)
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        tm.apply_new_config()
+
+        contents = self._read_file(self._dest('myfile'))
+        self.assertEqual(contents, 'config contents')
+
     def test_that_apply_new_config_keeps_files_in_source_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
 
@@ -62,6 +72,16 @@ class TestConfigReloader(unittest.TestCase):
 
         contents = self._read_file(self._dest('conffile'))
         self.assertEqual(contents, 'working config')
+
+    def test_that_apply_new_config_restores_files_if_dest_didnt_exist_yet(self):
+        self._write_file(self._source('conffile'), 'failing config')
+        shutil.rmtree(self.dest, ignore_errors=True)
+        self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        tm.apply_new_config()
+
+        self.assertFalse(os.path.exists(self.dest))
 
     def test_that_apply_new_config_doesnt_hup_nginx_if_config_check_fails(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')

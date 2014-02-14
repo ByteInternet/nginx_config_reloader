@@ -63,7 +63,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def install_new_custom_config_dir(self):
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
-        shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
+        if os.path.exists(CUSTOM_CONFIG_DIR):
+            shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
         completed = False
         while not completed:
             try:
@@ -74,7 +75,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def restore_old_custom_config_dir(self):
         shutil.rmtree(CUSTOM_CONFIG_DIR)
-        shutil.move(BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR)
+        if os.path.exists(BACKUP_CONFIG_DIR):
+            shutil.move(BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR)
 
     def reload_nginx(self):
         pid = self.get_nginx_pid()
