@@ -36,22 +36,35 @@ logger = logging.getLogger(__name__)
 class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def my_init(self, logger=None):
+        """Constructor called by ProcessEvent"""
         if not logger:
             self.logger = logging
         else:
             self.logger = logger
 
     def process_IN_DELETE(self, event):
+        """Triggered by inotify on removal of file or removal of dir
+
+        If the dir itself is removed, inotify will stop watching and also
+        trigger IN_IGNORED.
+        """
         if not event.dir:  # Will also capture IN_DELETE_SELF
             self.handle_event(event)
 
+    def process_IN_MOVED_TO(self, event):
+        """Triggered by inotify when a file is moved to the dir"""
+        self.handle_event(event)
+
     def process_IN_CLOSE_WRITE(self, event):
+        """Triggered by inotify when a file is written in the dir"""
         self.handle_event(event)
 
     def process_IN_IGNORED(self, event):
+        """Triggered by inotify when it stops watching"""
         raise ListenTargetTerminated
 
     def process_IN_MOVE_SELF(self, event):
+        """Triggered by inotify when watched dir is moved"""
         raise ListenTargetTerminated
 
     def handle_event(self, event):
