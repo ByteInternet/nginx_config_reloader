@@ -1,3 +1,9 @@
+nginx-config-reloader (20140215.194537) unstable; urgency=low
+
+  * Handle files being moved to watch dir
+
+ -- Maarten van Schaik <maarten@byte.nl>  Sat, 15 Feb 2014 19:45:41 +0100
+
 nginx-config-reloader (20140215.192424) unstable; urgency=low
 
   * Daemonize before running the loop
