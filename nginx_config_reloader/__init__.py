@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import argparse
 import fnmatch
+import daemon
+import daemon.pidlockfile
 import pyinotify
 import subprocess
 import signal
@@ -20,7 +22,8 @@ NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
 
 BACKUP_CONFIG_DIR = CUSTOM_CONFIG_DIR + '_bak'
-IGNORE_FILES = (  # glob patterns
+IGNORE_FILES = (
+    # glob patterns
     '.*',
     '*~',
     ERROR_FILE,
@@ -115,7 +118,15 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
-def wait_loop(daemonize=True, logger=None):
+def wait_loop(logger=None):
+    """Main event loop
+
+    There is an outer loop that checks the availability of the directory to watch.
+    As soon as it becomes available, it starts an inotify-monitor that monitors
+    configuration changes in an inner event loop. When the monitored directory is
+    renamed or removed, the inotify-handler raises an exception to break out of the
+    inner loop and we're back here in the outer loop.
+    """
     wm = pyinotify.WatchManager()
     handler = NginxConfigReloader(logger=logger)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
@@ -127,9 +138,12 @@ def wait_loop(daemonize=True, logger=None):
 
         wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
 
+        # Install initial configuration
+        handler.apply_new_config()
+
         try:
             logger.info("Listening for changes to %s" % DIR_TO_WATCH)
-            notifier.loop(daemonize=daemonize)
+            notifier.loop()
         except pyinotify.NotifierError as err:
             logger.critical(err)
         except ListenTargetTerminated:
@@ -148,7 +162,7 @@ def main():
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-        wait_loop(daemonize=False, logger=logger)
+        wait_loop(logger=logger)
 
     if args.daemon:
         handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
@@ -156,7 +170,9 @@ def main():
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
 
-        wait_loop(daemonize=True, logger=logger)
+        pidfile = pidfile=daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
+        with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
+            wait_loop(logger=logger)
 
     else:
         tm = NginxConfigReloader()
