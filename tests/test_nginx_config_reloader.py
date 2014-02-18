@@ -1,11 +1,10 @@
 import os
 import subprocess
-from tempfile import mkdtemp, NamedTemporaryFile
+from tempfile import mkdtemp
 import unittest
-import mock
 import shutil
 import signal
-import pyinotify
+import mock
 import nginx_config_reloader
 
 
@@ -173,107 +172,6 @@ class TestConfigReloader(unittest.TestCase):
 
     def _dest(self, name):
         return os.path.join(self.dest, name)
-
-
-class TestGetPid(unittest.TestCase):
-
-    def test_that_get_pid_returns_pid_from_pidfile(self):
-        with mock.patch('__builtin__.open', mock.mock_open(read_data='42')):
-            tm = nginx_config_reloader.NginxConfigReloader()
-            self.assertEqual(tm.get_nginx_pid(), 42)
-
-    def test_that_get_pid_returns_none_if_theres_no_pid_file(self):
-        with mock.patch('__builtin__.open', mock.mock_open()) as m:
-            m.side_effect = IOError('No such file or directory')
-
-            tm = nginx_config_reloader.NginxConfigReloader()
-            self.assertIsNone(tm.get_nginx_pid())
-
-    def test_that_get_pid_returns_none_if_pidfile_doesnt_contain_pid(self):
-        with mock.patch('__builtin__.open', mock.mock_open(read_data='')):
-
-            tm = nginx_config_reloader.NginxConfigReloader()
-            self.assertIsNone(tm.get_nginx_pid())
-
-
-class TestInotifyCallbacks(unittest.TestCase):
-    def setUp(self):
-        patcher = mock.patch('nginx_config_reloader.NginxConfigReloader.handle_event')
-        self.addCleanup(patcher.stop)
-        self.handle_event = patcher.start()
-
-        self.dir = mkdtemp()
-        with open(os.path.join(self.dir, 'existing_file'), 'w') as f:
-            f.write('blablabla')
-
-        wm = pyinotify.WatchManager()
-        handler = nginx_config_reloader.NginxConfigReloader()
-        self.notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
-        wm.add_watch(self.dir, pyinotify.ALL_EVENTS)
-
-    def tearDown(self):
-        self.notifier.stop()
-        shutil.rmtree(self.dir, ignore_errors=True)
-
-    def _process_events(self):
-        while self.notifier.check_events(0):
-            self.notifier.read_events()
-            self.notifier.process_events()
-
-    def test_that_handle_event_is_called_when_new_file_is_created(self):
-        with open(os.path.join(self.dir, 'testfile'), 'w') as f:
-            f.write('blablabla')
-
-        self._process_events()
-
-        self.assertEqual(len(self.handle_event.mock_calls), 1)
-
-    def test_that_handle_event_is_called_when_a_file_is_removed(self):
-        os.remove(os.path.join(self.dir, 'existing_file'))
-
-        self._process_events()
-
-        self.assertEqual(len(self.handle_event.mock_calls), 1)
-
-    def test_that_handle_event_is_called_when_a_file_is_moved_in(self):
-        with NamedTemporaryFile(delete=False) as f:
-            os.rename(f.name, os.path.join(self.dir, 'newfile'))
-
-            self._process_events()
-
-            self.assertEqual(len(self.handle_event.mock_calls), 1)
-
-    def test_that_handle_event_is_called_when_a_file_is_moved_out(self):
-        destdir = mkdtemp()
-        os.rename(os.path.join(self.dir, 'existing_file'), os.path.join(destdir, 'existing_file'))
-
-        self._process_events()
-
-        self.assertEqual(len(self.handle_event.mock_calls), 1)
-
-        shutil.rmtree(destdir)
-
-    def test_that_handle_event_is_called_when_a_file_is_renamed(self):
-        os.rename(os.path.join(self.dir, 'existing_file'), os.path.join(self.dir, 'new_name'))
-
-        self._process_events()
-
-        self.assertGreaterEqual(len(self.handle_event.mock_calls), 1)
-
-    def test_that_listen_target_terminated_is_raised_if_dir_is_renamed(self):
-        destdir = mkdtemp()
-        os.rename(self.dir, destdir)
-
-        with self.assertRaises(nginx_config_reloader.ListenTargetTerminated):
-            self._process_events()
-
-        shutil.rmtree(destdir)
-
-    def test_that_listen_target_terminated_is_raised_if_dir_is_removed(self):
-        shutil.rmtree(self.dir)
-
-        with self.assertRaises(nginx_config_reloader.ListenTargetTerminated):
-            self._process_events()
 
 
 class Event:
