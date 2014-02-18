@@ -51,8 +51,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if not event.dir:  # Will also capture IN_DELETE_SELF
             self.handle_event(event)
 
-    def process_IN_MOVED_TO(self, event):
-        """Triggered by inotify when a file is moved to the dir"""
+    def process_IN_MOVED(self, event):
+        """Triggered by inotify when a file is moved from or to the dir"""
         self.handle_event(event)
 
     def process_IN_CLOSE_WRITE(self, event):
