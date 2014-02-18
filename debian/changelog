@@ -1,3 +1,9 @@
+nginx-config-reloader (20140218.114728) unstable; urgency=low
+
+  * Handle case where file is moved into dir
+
+ -- Maarten van Schaik <maarten@byte.nl>  Tue, 18 Feb 2014 11:47:32 +0100
+
 nginx-config-reloader (20140215.194537) unstable; urgency=low
 
   * Handle files being moved to watch dir
