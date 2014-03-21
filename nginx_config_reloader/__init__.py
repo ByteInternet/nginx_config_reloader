@@ -160,7 +160,7 @@ def wait_loop(logger=None):
         except pyinotify.NotifierError as err:
             logger.critical(err)
         except ListenTargetTerminated:
-            logger.warning("Configuration dir list, waiting for it to reappear")
+            logger.warning("Configuration dir lost, waiting for it to reappear")
 
 
 def main():
