@@ -1,3 +1,13 @@
+nginx-config-reloader (20140716.165657) saucy; urgency=low
+
+  [ Maarten ]
+  * Fix typo in warning message
+
+  [ Allard Hoeve ]
+  * Remove error logfile when Nginx config correct
+
+ -- Allard Hoeve <allard@byte.nl>  Wed, 16 Jul 2014 16:56:58 +0200
+
 nginx-config-reloader (20140218.114728) unstable; urgency=low
 
   * Handle case where file is moved into dir
