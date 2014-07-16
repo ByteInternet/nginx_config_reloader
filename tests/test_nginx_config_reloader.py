@@ -62,6 +62,19 @@ class TestConfigReloader(unittest.TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
+    def test_that_apply_new_config_removes_error_file_when_config_correct_and_ignores_all_oserrors(self):
+        # This test triggers an OSError because the tempdir we created does not
+        # have any error files on disk. So this test tests: 1. the unlink call, 2. the OSErrors
+        # OSErrors could be: missing file, no permission to remove
+        with mock.patch('os.unlink') as mock_unlink:
+            self.test_config.return_value = True
+
+            tm = nginx_config_reloader.NginxConfigReloader()
+            tm.apply_new_config()
+
+            error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
+            mock_unlink.assert_called_once_with(error_file)
+
     def test_that_apply_new_config_restores_files_if_config_check_fails(self):
         self._write_file(self._source('conffile'), 'failing config')
         self._write_file(self._dest('conffile'), 'working config')

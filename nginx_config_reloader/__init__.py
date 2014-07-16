@@ -86,6 +86,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.restore_old_custom_config_dir()
             self.write_error_file(e.output)
             return False
+        else:
+            try:
+                os.unlink(os.path.join(DIR_TO_WATCH, ERROR_FILE))
+            except OSError:
+                pass
 
         self.reload_nginx()
         return True
@@ -183,7 +188,7 @@ def main():
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
 
-        pidfile = pidfile=daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
+        pidfile = daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
         with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
             wait_loop(logger=logger)
 
