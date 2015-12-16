@@ -16,6 +16,7 @@ import time
 
 DIR_TO_WATCH = '/data/web/nginx'
 CUSTOM_CONFIG_DIR = '/etc/nginx/app'
+MAIN_CONFIG_DIR = '/etc/nginx/'
 
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
@@ -100,6 +101,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
         completed = False
+        if os.path.isfile(DIR_TO_WATCH+"/magento1.flag"):
+            shutil.copyfile(MAIN_CONFIG_DIR+"/magento1.conf", MAIN_CONFIG_DIR+"/magento.conf");
+        elif os.path.isfile(DIR_TO_WATCH+"/magento2.flag"):
+            shutil.copyfile(MAIN_CONFIG_DIR+"/magento2.conf", MAIN_CONFIG_DIR+"/magento.conf");
+        else:
+            shutil.copyfile(MAIN_CONFIG_DIR+"/magento1.conf", MAIN_CONFIG_DIR+"/magento.conf");
         while not completed:
             try:
                 shutil.copytree(DIR_TO_WATCH, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*IGNORE_FILES))
