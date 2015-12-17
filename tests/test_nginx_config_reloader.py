@@ -36,9 +36,12 @@ class TestConfigReloader(unittest.TestCase):
         shutil.rmtree(self.source, ignore_errors=True)
         shutil.rmtree(self.dest, ignore_errors=True)
         shutil.rmtree(self.backup, ignore_errors=True)
-        os.unlink(self.mag_conf)
-        os.unlink(self.mag1_conf)
-        os.unlink(self.mag2_conf)
+        try:
+            os.unlink(self.mag_conf)
+            os.unlink(self.mag1_conf)
+            os.unlink(self.mag2_conf)
+        except OSError:
+            pass
 
     def test_that_apply_new_config_moves_files_to_dest_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
@@ -67,7 +70,48 @@ class TestConfigReloader(unittest.TestCase):
         tm.apply_new_config()
 
         contents = self._read_file(self.mag_conf)
+        self.assertTrue(os.path.islink(self.mag_conf))
         self.assertEqual(contents, 'magento1 config')
+
+    def test_that_apply_new_config_does_not_install_configs_if_magento1_config_doesnt_exist(self):
+        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        os.unlink(self.mag1_conf)
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        ret = tm.apply_new_config()
+
+        self.assertFalse(ret)
+        self.assertFalse(mock_install_custom.called)
+
+    def test_that_apply_new_config_keeps_current_magento_config_if_symlinking_new_config_goes_wrong(self):
+        self._write_file(self.mag_conf, 'magento1 config')
+
+        mock_symlink = self._patch('os.symlink')
+        mock_symlink.side_effect = OSError
+
+        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        ret = tm.apply_new_config()
+
+        self.assertFalse(ret)
+        self.assertFalse(mock_install_custom.called)
+
+        self.assertTrue(os.path.exists(self.mag_conf))
+        contents = self._read_file(self.mag_conf)
+        self.assertEqual(contents, 'magento1 config')
+
+    def test_that_apply_new_config_does_not_install_configs_if_magento2_config_doesnt_exist(self):
+        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        os.unlink(self.mag2_conf)
+
+        tm = nginx_config_reloader.NginxConfigReloader()
+        ret = tm.apply_new_config()
+
+        self.assertFalse(ret)
+        self.assertFalse(mock_install_custom.called)
 
     def test_that_apply_new_config_enables_magento1_config_if_customer_sets_flag(self):
         self._write_file(self.mag1_conf, 'magento1 config')
@@ -80,6 +124,7 @@ class TestConfigReloader(unittest.TestCase):
             tm.apply_new_config()
 
         contents = self._read_file(self.mag_conf)
+        self.assertTrue(os.path.islink(self.mag_conf))
         self.assertEqual(contents, 'magento2 config')
 
     def test_that_apply_new_config_keeps_files_in_source_dir(self):
@@ -98,6 +143,8 @@ class TestConfigReloader(unittest.TestCase):
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
     def test_that_apply_new_config_removes_error_file_when_config_correct_and_ignores_all_oserrors(self):
+        self._patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
+
         # This test triggers an OSError because the tempdir we created does not
         # have any error files on disk. So this test tests: 1. the unlink call, 2. the OSErrors
         # OSErrors could be: missing file, no permission to remove
