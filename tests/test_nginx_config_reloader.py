@@ -36,12 +36,11 @@ class TestConfigReloader(unittest.TestCase):
         shutil.rmtree(self.source, ignore_errors=True)
         shutil.rmtree(self.dest, ignore_errors=True)
         shutil.rmtree(self.backup, ignore_errors=True)
-        try:
-            os.unlink(self.mag_conf)
-            os.unlink(self.mag1_conf)
-            os.unlink(self.mag2_conf)
-        except OSError:
-            pass
+        for f in [self.mag_conf, self.mag1_conf, self.mag2_conf]:
+            try:
+                os.unlink(f)
+            except OSError:
+                pass
 
     def test_that_apply_new_config_moves_files_to_dest_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
