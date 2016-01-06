@@ -1,3 +1,15 @@
+nginx-config-reloader (20160106.151345) trusty; urgency=medium
+
+  [ Jeroen van Heugten ]
+  * Watch Magento1/2 configuration flag
+
+  [ Gertjan Oude Lohuis ]
+  * Add tests for magento2 flag and configuration
+  * Atomically create symlink to magento config
+  * Make sure all tmpfiles are deleted
+
+ -- Allard Hoeve <allard@byte.nl>  Wed, 06 Jan 2016 15:13:47 +0100
+
 nginx-config-reloader (20140716.165657) saucy; urgency=low
 
   [ Maarten ]
