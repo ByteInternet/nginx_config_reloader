@@ -15,18 +15,25 @@ import time
 
 
 DIR_TO_WATCH = '/data/web/nginx'
-CUSTOM_CONFIG_DIR = '/etc/nginx/app'
+MAIN_CONFIG_DIR = '/etc/nginx'
+CUSTOM_CONFIG_DIR = MAIN_CONFIG_DIR + '/app'
+BACKUP_CONFIG_DIR = MAIN_CONFIG_DIR + '/app_bak'
+
+MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
+MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
+MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
+MAGENTO2_FLAG = DIR_TO_WATCH + '/magento2.flag'
 
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
 
-BACKUP_CONFIG_DIR = CUSTOM_CONFIG_DIR + '_bak'
 IGNORE_FILES = (
     # glob patterns
     '.*',
     '*~',
     ERROR_FILE,
+    '*.flag',
 )
 SYSLOG_SOCKET = '/dev/log'
 
@@ -72,7 +79,36 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("%s detected on %s" % (event.maskname, event.name))
             self.apply_new_config()
 
+    def install_magento_config(self):
+        # Check if configs are present
+        os.stat(MAGENTO1_CONF)
+        os.stat(MAGENTO2_CONF)
+
+        # Create new temporary filename for new config
+        MAGENTO_CONF_NEW = MAGENTO_CONF + '_new'
+
+        # Remove tmp link it it exists (leftover?)
+        try:
+            os.unlink(MAGENTO_CONF_NEW)
+        except OSError:
+            pass
+
+        # Symlink new config to temporary filename
+        if os.path.isfile(MAGENTO2_FLAG):
+            os.symlink(MAGENTO2_CONF, MAGENTO_CONF_NEW)
+        else:
+            os.symlink(MAGENTO1_CONF, MAGENTO_CONF_NEW)
+
+        # Move temporary symlink to actual location, overwriting existing link or file
+        os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
+
     def apply_new_config(self):
+        try:
+            self.install_magento_config()
+        except OSError:
+            self.logger.error("Installation of magento config failed")
+            return False
+
         try:
             self.install_new_custom_config_dir()
         except OSError:
