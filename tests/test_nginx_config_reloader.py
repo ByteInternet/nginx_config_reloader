@@ -242,6 +242,11 @@ class TestConfigReloader(unittest.TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
+    def test_that_flags_trigger_config_reload(self):
+        tm = nginx_config_reloader.NginxConfigReloader()
+        tm.handle_event(Event('magento2.flag'))
+        self.kill.assert_called_once_with(42, signal.SIGHUP)
+
     def test_that_handle_event_doesnt_apply_config_on_change_of_error_file(self):
         tm = nginx_config_reloader.NginxConfigReloader()
         tm.handle_event(Event(nginx_config_reloader.ERROR_FILE))

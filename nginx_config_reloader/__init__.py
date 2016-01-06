@@ -28,13 +28,13 @@ NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
 
-IGNORE_FILES = (
+WATCH_IGNORE_FILES = (
     # glob patterns
     '.*',
     '*~',
-    ERROR_FILE,
-    '*.flag',
+    ERROR_FILE
 )
+SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
 SYSLOG_SOCKET = '/dev/log'
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         raise ListenTargetTerminated
 
     def handle_event(self, event):
-        if not any(fnmatch.fnmatch(event.name, pat) for pat in IGNORE_FILES):
+        if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("%s detected on %s" % (event.maskname, event.name))
             self.apply_new_config()
 
@@ -138,7 +138,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         completed = False
         while not completed:
             try:
-                shutil.copytree(DIR_TO_WATCH, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*IGNORE_FILES))
+                shutil.copytree(DIR_TO_WATCH, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*SYNC_IGNORE_FILES))
                 completed = True
             except shutil.Error:
                 pass  # retry
