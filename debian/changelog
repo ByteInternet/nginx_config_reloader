@@ -1,3 +1,10 @@
+nginx-config-reloader (20160106.160524) saucy; urgency=low
+
+  [ Allard Hoeve ]
+  * Revert multiversion
+
+ -- Allard Hoeve <allard@byte.nl>  Wed, 16 Jul 2014 16:56:58 +0200
+
 nginx-config-reloader (20140716.165657) saucy; urgency=low
 
   [ Maarten ]
