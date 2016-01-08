@@ -1,3 +1,9 @@
+nginx-config-reloader (20160108.111855) trusty; urgency=medium
+
+  * Rerelease
+
+ -- Allard Hoeve <allard@byte.nl>  Fri, 08 Jan 2016 11:18:56 +0100
+
 nginx-config-reloader (20160106.155202) trusty; urgency=medium
 
   * Also reload Nginx on flag file changes
