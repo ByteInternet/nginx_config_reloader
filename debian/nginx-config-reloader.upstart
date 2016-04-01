@@ -1,0 +1,12 @@
+# nginx-config-reloader - Daemon that detects, checks and installs user provided nginx configuration files
+
+description "Daemon that detects, checks and installs user provided nginx configuration files"
+author "Rick van de Loo <rick@byte.nl>"
+
+start on runlevel [2345]
+stop on runlevel [016]
+
+# Infinite respawn
+respawn
+
+exec /usr/bin/nginx_config_reloader --monitor

@@ -26,7 +26,7 @@ pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=ngi
 
 `nginx_config_reloader --daemon` to fork to background and monitor changes
 
-`nginx_config_reloader --test` to stay in foreground and monitor changes
+`nginx_config_reloader --monitor` to stay in foreground and monitor changes
 
 
 ## Running tests

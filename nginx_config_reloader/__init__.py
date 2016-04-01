@@ -207,10 +207,10 @@ def wait_loop(logger=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
-    parser.add_argument('--test', '-t', action='store_true', help='Test mode: monitor files on foreground with output')
+    parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     args = parser.parse_args()
 
-    if args.test:
+    if args.monitor:
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
         logger.setLevel(logging.DEBUG)
