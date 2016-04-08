@@ -1,3 +1,9 @@
+nginx-config-reloader (20160108.111855ubuntu1) UNRELEASED; urgency=medium
+
+  * Add upstart script (with infinite respawn)
+
+ -- Rick van de Loo <vdloo@workstation4>  Fri, 01 Apr 2016 12:11:15 +0200
+
 nginx-config-reloader (20160108.111855) trusty; urgency=medium
 
   * Rerelease
