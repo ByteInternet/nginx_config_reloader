@@ -1,8 +1,9 @@
-nginx-config-reloader (20160108.111855ubuntu1) UNRELEASED; urgency=medium
+nginx-config-reloader (20160412.145423) xenial; urgency=medium
 
-  * Add upstart script (with infinite respawn)
+  * update buildpackage instructions
+  * add upstart script with infinite respawn
 
- -- Rick van de Loo <vdloo@workstation4>  Fri, 01 Apr 2016 12:11:15 +0200
+ -- Rick van de Loo <rick@byte.nl>  Tue, 12 Apr 2016 14:57:45 +0200
 
 nginx-config-reloader (20160108.111855) trusty; urgency=medium
 
