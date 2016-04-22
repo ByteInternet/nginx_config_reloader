@@ -8,5 +8,13 @@ stop on runlevel [016]
 
 # Infinite respawn
 respawn
+respawn limit unlimited
 
 exec /usr/bin/nginx_config_reloader --monitor
+
+post-stop script
+	goal=$(initctl status $UPSTART_JOB | cut -d' ' -f 2 | cut -d/ -f 1)
+	if [ "$goal" != "stop" ]; then
+		sleep 10;
+	fi
+end script
