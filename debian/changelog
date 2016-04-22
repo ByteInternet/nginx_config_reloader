@@ -1,3 +1,11 @@
+nginx-config-reloader (20160422.163914) xenial; urgency=medium
+
+  [ Willem de Groot ]
+  * add upstart script with infinite respawn
+  * Make nginx config reloader more resilient after oom kills or crashes
+
+ -- Rick van de Loo <vdloo@workstation4>  Fri, 22 Apr 2016 16:39:19 +0200
+
 nginx-config-reloader (20160412.145423) xenial; urgency=medium
 
   * update buildpackage instructions
