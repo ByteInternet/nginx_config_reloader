@@ -42,12 +42,13 @@ logger = logging.getLogger(__name__)
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
 
-    def my_init(self, logger=None):
+    def my_init(self, logger=None, allow_includes=False):
         """Constructor called by ProcessEvent"""
         if not logger:
             self.logger = logging
         else:
             self.logger = logger
+        self.allow_includes = allow_includes
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -102,7 +103,26 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         # Move temporary symlink to actual location, overwriting existing link or file
         os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
 
+    @staticmethod
+    def assert_no_includes_in_config():
+        if os.path.isdir(DIR_TO_WATCH):
+            check_external_resources = [
+                "/bin/grep", "-q", "'include\|load_module", DIR_TO_WATCH
+            ]
+            subprocess.check_output(check_external_resources)
+
     def apply_new_config(self):
+        if not self.allow_includes:
+            try:
+                self.assert_no_includes_in_config()
+            except subprocess.CalledProcessError:
+                self.logger.error("Config is not allowed to load external resources")
+                self.write_error_file(
+                    "You are not allowed to use include or load_module in the nginx config. "
+                    "See the NGINX dos and don'ts in this article: "
+                    "https://support.hypernode.com/knowledgebase/how-to-use-nginx/"
+                )
+                return False
         try:
             self.install_magento_config()
         except OSError:
@@ -172,7 +192,7 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
-def wait_loop(logger=None):
+def wait_loop(logger=None, allow_includes=False):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -182,7 +202,7 @@ def wait_loop(logger=None):
     inner loop and we're back here in the outer loop.
     """
     wm = pyinotify.WatchManager()
-    handler = NginxConfigReloader(logger=logger)
+    handler = NginxConfigReloader(logger=logger, allow_includes=allow_includes)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
 
     while True:
@@ -204,11 +224,20 @@ def wait_loop(logger=None):
             logger.warning("Configuration dir lost, waiting for it to reappear")
 
 
-def main():
+def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
-    args = parser.parse_args()
+    parser.add_argument(
+        '--allow-includes', action='store_true',
+        help='Allow the config to contain includes (default False)'
+    )
+    return parser.parse_args()
+
+
+def main():
+
+    args = parse_nginx_config_reloader_arguments()
 
     if args.monitor:
         handler = logging.StreamHandler()
@@ -216,7 +245,7 @@ def main():
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-        wait_loop(logger=logger)
+        wait_loop(logger=logger, allow_includes=args.allow_includes)
 
     if args.daemon:
         handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
@@ -226,7 +255,7 @@ def main():
 
         pidfile = daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
         with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
-            wait_loop(logger=logger)
+            wait_loop(logger=logger, allow_includes=args.allow_includes)
 
     else:
         tm = NginxConfigReloader()
