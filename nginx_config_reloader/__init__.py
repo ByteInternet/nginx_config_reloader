@@ -37,6 +37,9 @@ WATCH_IGNORE_FILES = (
 SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
 SYSLOG_SOCKET = '/dev/log'
 
+ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*(?=.*\.\.|/etc/nginx/app|/(?!etc/nginx))"
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,9 +118,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             # - it is in a comment
             # - the include is a relative path but does not start with ..
             # - the include is absolute but to the MAIN_CONFIG_DIR
-            check_external_resources = "[ $(grep --no-filename -r 'include\|load_module' '{}' | " \
-                                       "grep -v '^\s*#\|include [^/\|^..]\|{}' | wc -l) -lt 1 ]" \
-                                       "".format(DIR_TO_WATCH, MAIN_CONFIG_DIR)
+            check_external_resources = "grep -r -P '{}' /data/web/nginx/*".format(ILLEGAL_INCLUDE_REGEX)
             subprocess.check_output(check_external_resources, shell=True)
 
     def apply_new_config(self):

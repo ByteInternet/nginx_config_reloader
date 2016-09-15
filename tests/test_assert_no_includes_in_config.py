@@ -1,4 +1,7 @@
-from nginx_config_reloader import NginxConfigReloader
+import pipes
+from subprocess import check_output, CalledProcessError
+
+from nginx_config_reloader import NginxConfigReloader, ILLEGAL_INCLUDE_REGEX
 from tests.testcase import TestCase
 
 
@@ -22,7 +25,30 @@ class TestAssertNoIncludesInConfig(TestCase):
     def test_assert_no_includes_in_config_checks_user_nginx_dir_for_forbidden_includes(self):
         NginxConfigReloader.assert_no_includes_in_config()
 
-        expected_command = "[ $(grep --no-filename -r 'include\|load_module' '/data/web/nginx' | " \
-                           "grep -v '^\s*#\|include [^/\|^..]\|/etc/nginx' | wc -l) -lt 1 ]"
+        expected_command = "grep -r -P '^(?!\\s*#)\\s*(include|load_module)" \
+                           "\\s*(?=.*\\.\\.|/etc/nginx/app|/(?!etc/nginx))' /data/web/nginx/*"
         self.check_output.assert_called_once_with(expected_command, shell=True)
 
+    def test_include_prevention_legal_includes(self):
+        no_matches = [
+            "include /etc/nginx/fastcgi_params",
+            "include \"/etc/nginx/php-handler.conf\";",
+            "include '/etc/nginx/php-handler.conf';",
+            "include /etc/nginx/fastcgi_params",
+        ]
+
+        for line in no_matches:
+            print line
+            check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(pipes.quote(line), ILLEGAL_INCLUDE_REGEX),
+                         shell=True)
+
+    def test_include_prevention_illegal_includes(self):
+        matches = [
+            "include /data/web/nginx/someexample.allow;",
+            "include /etc/nginx/../../data/web/banaan.config",
+        ]
+
+        for line in matches:
+            with self.assertRaises(CalledProcessError):
+                print line
+                check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(pipes.quote(line), ILLEGAL_INCLUDE_REGEX), shell=True)
