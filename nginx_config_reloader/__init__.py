@@ -105,11 +105,20 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     @staticmethod
     def assert_no_includes_in_config():
+        """
+        Verify that there are no includes to files outside of the /etc/nginx/ directory in the user config
+        Relative includes are OK
+        :return None|CalledProcessError:
+        """
         if os.path.isdir(DIR_TO_WATCH):
-            check_external_resources = [
-                "/bin/grep", "-q", "'include\|load_module", DIR_TO_WATCH
-            ]
-            subprocess.check_output(check_external_resources)
+            # Using include or load_module is forbidden unless
+            # - it is in a comment
+            # - the include is a relative path but does not start with ..
+            # - the include is absolute but to the MAIN_CONFIG_DIR
+            check_external_resources = "[ $(grep --no-filename -r 'include\|load_module' '{}' | " \
+                                       "grep -v '^\s*#\|include [^/\|^..]\|{}' | wc -l) -lt 1 ]" \
+                                       "".format(DIR_TO_WATCH, MAIN_CONFIG_DIR)
+            subprocess.check_output(check_external_resources, shell=True)
 
     def apply_new_config(self):
         if not self.allow_includes:
@@ -118,9 +127,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             except subprocess.CalledProcessError:
                 self.logger.error("Config is not allowed to load external resources")
                 self.write_error_file(
-                    "You are not allowed to use include or load_module in the nginx config. "
+                    "You are not allowed to use include or load_module in the nginx config unless the path is relative "
+                    "or in the main nginx config directory. "
                     "See the NGINX dos and don'ts in this article: "
-                    "https://support.hypernode.com/knowledgebase/how-to-use-nginx/"
+                    "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"
                 )
                 return False
         try:
@@ -230,7 +240,8 @@ def parse_nginx_config_reloader_arguments():
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     parser.add_argument(
         '--allow-includes', action='store_true',
-        help='Allow the config to contain includes (default False)'
+        help='Allow the config to contain includes outside of'
+             ' the system nginx config directory (default False)'
     )
     return parser.parse_args()
 

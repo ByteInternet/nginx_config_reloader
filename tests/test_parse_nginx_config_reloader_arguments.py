@@ -24,7 +24,8 @@ class TestParseNginxConfigReloaderArguments(TestCase):
             call('--monitor', '-m', action='store_true',
                  help='Monitor files on foreground with output'),
             call('--allow-includes', action='store_true',
-                 help='Allow the config to contain includes (default False)')
+                 help='Allow the config to contain includes outside of'
+                      ' the system nginx config directory (default False)')
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls
