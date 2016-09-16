@@ -37,7 +37,8 @@ WATCH_IGNORE_FILES = (
 SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
 SYSLOG_SOCKET = '/dev/log'
 
-ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*(?=.*\.\.|/etc/nginx/app|/(?!etc/nginx))"
+# Because of bash escaping problems we define quote's in octal format \042 == ' and \047 == "
+ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*(\\042|\\047)?(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))(\\042|\\047)?"
 
 
 logger = logging.getLogger(__name__)

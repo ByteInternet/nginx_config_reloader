@@ -22,19 +22,17 @@ class TestAssertNoIncludesInConfig(TestCase):
 
         self.assertFalse(self.check_output.called)
 
-    def test_assert_no_includes_in_config_checks_user_nginx_dir_for_forbidden_includes(self):
-        NginxConfigReloader.assert_no_includes_in_config()
-
-        expected_command = "grep -r -P '^(?!\\s*#)\\s*(include|load_module)" \
-                           "\\s*(?=.*\\.\\.|/etc/nginx/app|/(?!etc/nginx))' /data/web/nginx/*"
-        self.check_output.assert_called_once_with(expected_command, shell=True)
-
     def test_include_prevention_legal_includes(self):
         no_matches = [
             "include /etc/nginx/fastcgi_params",
             "include \"/etc/nginx/php-handler.conf\";",
             "include '/etc/nginx/php-handler.conf';",
             "include /etc/nginx/fastcgi_params",
+            "include handler.conf",
+            "include relative_file.conf",
+            "include /etc/nginx/app/server.*;",
+            "include /etc/nginx//fastcgi_params",
+            "include /etc//nginx/fastcgi_params",
         ]
 
         for line in no_matches:
@@ -46,6 +44,16 @@ class TestAssertNoIncludesInConfig(TestCase):
         matches = [
             "include /data/web/nginx/someexample.allow;",
             "include /etc/nginx/../../data/web/banaan.config",
+            'include "/etc/nginx/../../data/web/banaan.config"',
+            "include '/etc/nginx/../data/web/banaan.config'",
+            "include /data/web/banaan.config",
+            "include somedir/../../../../danger",
+            "include '/data/web/banaan.config'",
+            'include "/data/web/banaan.config"',
+            "include /etc/nginx/app_bak/server.*;",
+            'include "/data//web/banaan.config"',
+            'include "//data/web/banaan.config"',
+            'include "/data/web//banaan.config"'
         ]
 
         for line in matches:
