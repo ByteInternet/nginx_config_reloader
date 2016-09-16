@@ -37,8 +37,17 @@ WATCH_IGNORE_FILES = (
 SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
 SYSLOG_SOCKET = '/dev/log'
 
+# Using include or load_module is forbidden unless
+# - it is in a comment
+# - the include is a relative path but does not contain  ..
+# - the include is absolute but in the MAIN_CONFIG_DIR
+# - but not in the BACKUP_CONFIG_DIR
+# - also takes into account double slashes
 # Because of bash escaping problems we define quote's in octal format \042 == ' and \047 == "
-ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*(\\042|\\047)?(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))(\\042|\\047)?"
+ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*" \
+                        "(\\042|\\047)?" \
+                        "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))" \
+                        "(\\042|\\047)?"
 
 
 logger = logging.getLogger(__name__)
@@ -119,7 +128,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             # - it is in a comment
             # - the include is a relative path but does not start with ..
             # - the include is absolute but to the MAIN_CONFIG_DIR
-            check_external_resources = "grep -r -P '{}' /data/web/nginx/*".format(ILLEGAL_INCLUDE_REGEX)
+            check_external_resources = \
+                "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
+                    ILLEGAL_INCLUDE_REGEX, DIR_TO_WATCH
+                )
             subprocess.check_output(check_external_resources, shell=True)
 
     def apply_new_config(self):

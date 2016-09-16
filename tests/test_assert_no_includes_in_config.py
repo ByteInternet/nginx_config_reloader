@@ -22,6 +22,15 @@ class TestAssertNoIncludesInConfig(TestCase):
 
         self.assertFalse(self.check_output.called)
 
+    def test_assert_no_includes_in_config_checks_user_nginx_dir_for_forbidden_includes(self):
+        NginxConfigReloader.assert_no_includes_in_config()
+
+        expected_command = "[ $(grep -r -P '^(?!\\s*#)\\s*(include|load_module)" \
+                           "\\s*(\\042|\\047)?(?=.*\\.\\.|/+etc/+nginx/+app_bak|" \
+                           "/+(?!etc/+nginx))(\\042|\\047)?' " \
+                           "'/data/web/nginx' | wc -l) -lt 1 ]"
+        self.check_output.assert_called_once_with(expected_command, shell=True)
+
     def test_include_prevention_legal_includes(self):
         no_matches = [
             "include /etc/nginx/fastcgi_params",
@@ -36,7 +45,6 @@ class TestAssertNoIncludesInConfig(TestCase):
         ]
 
         for line in no_matches:
-            print line
             check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(pipes.quote(line), ILLEGAL_INCLUDE_REGEX),
                          shell=True)
 
@@ -58,5 +66,6 @@ class TestAssertNoIncludesInConfig(TestCase):
 
         for line in matches:
             with self.assertRaises(CalledProcessError):
-                print line
-                check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(pipes.quote(line), ILLEGAL_INCLUDE_REGEX), shell=True)
+                check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
+                    pipes.quote(line), ILLEGAL_INCLUDE_REGEX), shell=True
+                )
