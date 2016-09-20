@@ -33,7 +33,7 @@ pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=ngi
 
 ```sh
 pip install -r requirements.txt
-nosetests
+./runtests.sh -1
 ```
 
 ## Building debian packages

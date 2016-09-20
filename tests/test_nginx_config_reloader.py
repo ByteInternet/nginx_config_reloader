@@ -1,17 +1,17 @@
 import os
 import subprocess
 from tempfile import mkdtemp, mkstemp, NamedTemporaryFile
-import unittest
 import shutil
 import signal
 import mock
 import nginx_config_reloader
+from tests.testcase import TestCase
 
 
-class TestConfigReloader(unittest.TestCase):
+class TestConfigReloader(TestCase):
 
     def setUp(self):
-        self.get_pid = self._patch('nginx_config_reloader.NginxConfigReloader.get_nginx_pid')
+        self.get_pid = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.get_nginx_pid')
         self.get_pid.return_value = 42
 
         self.source = mkdtemp()
@@ -29,8 +29,8 @@ class TestConfigReloader(unittest.TestCase):
         nginx_config_reloader.MAGENTO1_CONF = self.mag1_conf
         nginx_config_reloader.MAGENTO2_CONF = self.mag2_conf
 
-        self.test_config = self._patch('subprocess.check_output')
-        self.kill = self._patch('os.kill')
+        self.test_config = self.set_up_patch('subprocess.check_output')
+        self.kill = self.set_up_patch('os.kill')
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -73,7 +73,7 @@ class TestConfigReloader(unittest.TestCase):
         self.assertEqual(contents, 'magento1 config')
 
     def test_that_apply_new_config_does_not_install_configs_if_magento1_config_doesnt_exist(self):
-        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         os.unlink(self.mag1_conf)
 
@@ -86,10 +86,10 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_keeps_current_magento_config_if_symlinking_new_config_goes_wrong(self):
         self._write_file(self.mag_conf, 'magento1 config')
 
-        mock_symlink = self._patch('os.symlink')
+        mock_symlink = self.set_up_patch('os.symlink')
         mock_symlink.side_effect = OSError
 
-        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         tm = nginx_config_reloader.NginxConfigReloader()
         ret = tm.apply_new_config()
@@ -102,7 +102,7 @@ class TestConfigReloader(unittest.TestCase):
         self.assertEqual(contents, 'magento1 config')
 
     def test_that_apply_new_config_does_not_install_configs_if_magento2_config_doesnt_exist(self):
-        mock_install_custom = self._patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         os.unlink(self.mag2_conf)
 
@@ -142,7 +142,7 @@ class TestConfigReloader(unittest.TestCase):
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
     def test_that_apply_new_config_removes_error_file_when_config_correct_and_ignores_all_oserrors(self):
-        self._patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
 
         # This test triggers an OSError because the tempdir we created does not
         # have any error files on disk. So this test tests: 1. the unlink call, 2. the OSErrors
@@ -188,11 +188,38 @@ class TestConfigReloader(unittest.TestCase):
     def test_that_apply_new_config_writes_error_message_to_source_dir(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops!')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = nginx_config_reloader.NginxConfigReloader(allow_includes=True)
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
         self.assertEqual(contents, 'oops!')
+
+    def test_that_apply_new_config_writes_error_message_to_source_dir_if_include_is_rejected(self):
+        self.isdir = self.set_up_context_manager_patch(
+            'nginx_config_reloader.os.path.isdir'
+        )
+        self.isdir.return_value = True
+        self.test_config.side_effect = subprocess.CalledProcessError(1, '', '')  # grep with -q
+
+        tm = nginx_config_reloader.NginxConfigReloader(allow_includes=False)
+        tm.apply_new_config()
+
+        contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
+        self.assertIn('You are not allowed to use include or load_module in the nginx config', contents)
+
+    def test_that_apply_new_config_does_not_check_includes_if_dir_to_watch_does_not_exist(self):
+        self.isdir = self.set_up_context_manager_patch(
+            'nginx_config_reloader.os.path.isdir'
+        )
+        self.isdir.return_value = False
+
+        self.test_config.side_effect = subprocess.CalledProcessError(1, '', '')  # grep with -q
+
+        tm = nginx_config_reloader.NginxConfigReloader(allow_includes=False)
+        tm.apply_new_config()
+
+        contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
+        self.assertEqual(contents, '')
 
     def test_that_apply_new_config_doesnt_kill_if_no_pidfile(self):
         self.get_pid.return_value = None
@@ -203,10 +230,10 @@ class TestConfigReloader(unittest.TestCase):
         self.assertEqual(len(self.kill.mock_calls), 0)
 
     def test_that_apply_new_config_doesnt_fail_on_failing_copy(self):
-        copytree = self._patch('shutil.copytree')
+        copytree = self.set_up_patch('shutil.copytree')
         copytree.side_effect = OSError('Directory doesnt exist')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = nginx_config_reloader.NginxConfigReloader(allow_includes=True)
         tm.apply_new_config()
 
         self.assertEqual(len(self.test_config.mock_calls), 0)
@@ -258,13 +285,6 @@ class TestConfigReloader(unittest.TestCase):
         tm.handle_event(Event('.config.swp'))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
-
-    def _patch(self, name):
-        themock = mock.Mock()
-
-        patcher = mock.patch(name, themock)
-        self.addCleanup(patcher.stop)
-        return patcher.start()
 
     def _write_file(self, name, contents):
         with open(name, 'w') as f:
