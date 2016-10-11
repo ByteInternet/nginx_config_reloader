@@ -1,3 +1,18 @@
+nginx-config-reloader (20161011.103915) xenial; urgency=medium
+
+  [ Rick van de Loo ]
+  * do not allow includes in the config by default
+  * allow includes from the system nginx conf dir
+
+  [ Daniel Genis ]
+  * add regex for matching illegal includes
+  * improve regex for a more complete case
+
+  [ Rick van de Loo ]
+  * run ILLEGAL_INCLUDE_REGEX on config dir
+
+ -- Rick van de Loo <vdloo@workstation4>  Tue, 11 Oct 2016 10:39:24 +0200
+
 nginx-config-reloader (20160422.163914) xenial; urgency=medium
 
   [ Willem de Groot ]
