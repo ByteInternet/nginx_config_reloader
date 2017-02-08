@@ -1,3 +1,11 @@
+nginx-config-reloader (20170208.172203) xenial; urgency=medium
+
+  * Compatibility with Xenial/systemd
+  * Remove unused code
+  * Remove unused deps
+
+ -- Willem de Groot <gwillem@gmail.com>  Wed, 08 Feb 2017 17:22:19 +0100
+
 nginx-config-reloader (20161011.103915) xenial; urgency=medium
 
   [ Rick van de Loo ]
