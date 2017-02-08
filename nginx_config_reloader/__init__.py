@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import fnmatch
-import daemon
-import daemon.pidlockfile
 import pyinotify
 import subprocess
 import signal
@@ -248,44 +246,17 @@ def wait_loop(logger=None, allow_includes=False):
             logger.warning("Configuration dir lost, waiting for it to reappear")
 
 
-def parse_nginx_config_reloader_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
-    parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
-    parser.add_argument(
-        '--allow-includes', action='store_true',
-        help='Allow the config to contain includes outside of'
-             ' the system nginx config directory (default False)'
-    )
-    return parser.parse_args()
-
-
 def main():
 
-    args = parse_nginx_config_reloader_arguments()
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
 
-    if args.monitor:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(handler)
+    wait_loop(logger=logger)
 
-        wait_loop(logger=logger, allow_includes=args.allow_includes)
-
-    if args.daemon:
-        handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
-        handler.setFormatter(logging.Formatter('%(name)-12s %(levelname)-8s %(message)s'))
-        logger.setLevel(logging.INFO)
-        logger.addHandler(handler)
-
-        pidfile = daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
-        with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
-            wait_loop(logger=logger, allow_includes=args.allow_includes)
-
-    else:
-        tm = NginxConfigReloader()
-        tm.apply_new_config()
-
+    # should never return
+    return 1
 
 if __name__ == '__main__':
     sys.exit(main())
