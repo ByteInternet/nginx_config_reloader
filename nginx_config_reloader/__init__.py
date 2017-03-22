@@ -246,17 +246,44 @@ def wait_loop(logger=None, allow_includes=False):
             logger.warning("Configuration dir lost, waiting for it to reappear")
 
 
-def main():
+def parse_nginx_config_reloader_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
+    parser.add_argument(
+        '--allow-includes', action='store_true',
+        help='Allow the config to contain includes outside of'
+             ' the system nginx config directory (default False)'
+    )
+    return parser.parse_args()
 
+
+def get_logger():
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+    return logger
 
-    wait_loop(logger=logger)
 
-    # should never return
-    return 1
+def main():
+    args = parse_nginx_config_reloader_arguments()
+    log = get_logger()
+
+    if args.monitor:
+        # Track changed files in the nginx config dir and reload on change
+        wait_loop(
+            logger=log,
+            allow_includes=args.allow_includes
+        )
+        # should never return
+        return 1
+    else:
+        # Reload the config once
+        NginxConfigReloader(
+            logger=log,
+            allow_includes=args.allow_includes
+        ).apply_new_config()
+        return 0
 
 if __name__ == '__main__':
     sys.exit(main())
