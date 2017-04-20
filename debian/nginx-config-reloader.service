@@ -6,7 +6,7 @@ ExecStart=/usr/bin/nginx_config_reloader
 StandardOutput=null
 StandardError=journal
 RestartSec=10
-Restart=on-failure
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
