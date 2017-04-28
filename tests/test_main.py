@@ -58,5 +58,5 @@ class TestMain(TestCase):
 
         main()
 
-        self.reloader.assert_called_once_with()
+        self.reloader.assert_called_once_with(allow_includes=self.args.allow_includes)
         self.reloader.return_value.apply_new_config.assert_called_once_with()

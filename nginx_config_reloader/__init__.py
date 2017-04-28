@@ -283,7 +283,7 @@ def main():
             wait_loop(logger=logger, allow_includes=args.allow_includes)
 
     else:
-        tm = NginxConfigReloader()
+        tm = NginxConfigReloader(allow_includes=args.allow_includes)
         tm.apply_new_config()
 
 
