@@ -26,8 +26,8 @@ class TestAssertNoIncludesInConfig(TestCase):
         NginxConfigReloader.assert_regex_not_present(ILLEGAL_INCLUDE_REGEX)
 
         expected_command = "[ $(grep -r -P '^(?!\\s*#)\\s*(include|load_module)" \
-                           "\\s*(\\042|\\047)?(?=.*\\.\\.|/+etc/+nginx/+app_bak|" \
-                           "/+(?!etc/+nginx))(\\042|\\047)?' " \
+                           "\\s*(\\042|\\047)?\s*(?=.*\\.\\.|/+etc/+nginx/+app_bak|" \
+                           "/+(?!etc/+nginx))(\\042|\\047)?\s*' " \
                            "'/data/web/nginx' | wc -l) -lt 1 ]"
         self.check_output.assert_called_once_with(expected_command, shell=True)
 
@@ -36,6 +36,7 @@ class TestAssertNoIncludesInConfig(TestCase):
             "include /etc/nginx/fastcgi_params",
             "include \"/etc/nginx/php-handler.conf\";",
             "include '/etc/nginx/php-handler.conf';",
+            "include ' /etc/nginx/php-handler.conf';",
             "include /etc/nginx/fastcgi_params",
             "include handler.conf",
             "include relative_file.conf",
@@ -61,7 +62,8 @@ class TestAssertNoIncludesInConfig(TestCase):
             "include /etc/nginx/app_bak/server.*;",
             'include "/data//web/banaan.config"',
             'include "//data/web/banaan.config"',
-            'include "/data/web//banaan.config"'
+            'include "/data/web//banaan.config"',
+            'include " /data/web//banaan.config"'
         ]
 
         for line in matches:
@@ -72,10 +74,56 @@ class TestAssertNoIncludesInConfig(TestCase):
 
     def test_forbidden_config_client_body_temp_path_regex_unhappy_case(self):
         TEST_CASES = ["client_body_temp_path /tmp/path",
-                      "     client_body_temp_path /tmp/path"]
+                      "     client_body_temp_path /tmp/path",
+                      "client_body_temp_path  '/tmp/path'",
+                      "client_body_temp_path \"/tmp/path\"",
+                      "client_body_temp_path  ' /tmp/path'"
+                      ]
 
         for test in TEST_CASES:
             with self.assertRaises(CalledProcessError):
                 check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
                     pipes.quote(test), FORBIDDEN_CONFIG_REGEX[0][0]), shell=True
                 )
+
+    def test_forbidden_access_or_error_log_configuration_options(self):
+        TEST_CASES = [
+            "access_log /var/log/nginx/acceptatie.log;",
+            "     error_log /var/log/nginx/acceptatie.error.log info;",
+            "  access_log   //var//log/nginx/staging.log hypernode;",
+            "access_log   /var/log/../../staging.log hypernode;",
+            "  access_log   /data/var/log/../../../access.log;",
+            "access_log   /tmp/staging.log;",
+            "access_log   output.log;",  # would be placed in /usr/share/nginx/output.log
+            "access_log '/var/log/nginx/acceptatie.log;'",
+            "     error_log \"/var/log/nginx/acceptatie.error.log info;\"",
+            "access_log   '/tmp/staging.log ';",
+            "access_log   \"output.log;\"",  # would be placed in /usr/share/nginx/output.log
+            "access_log  \"/usr/output.log;\"",
+            "access_log  '/tmp/staging.log ';",
+            "access_log  ' /tmp/staging.log';",
+        ]
+
+        for test in TEST_CASES:
+            with self.assertRaises(CalledProcessError):
+                check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
+                    pipes.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]), shell=True
+                )
+
+    def test_allowed_access_or_error_log_configuration_options(self):
+        TEST_CASES = [
+            "access_log /data/var/log/access.log;",
+            "     error_log /data/var/log/access.log;",
+            "  access_log   //data//var//log//access.log;",
+            "access_log '/data/var/log/access.log';",
+            "     error_log \"/data/var/log/access.log;\"",
+            "  access_log   \"//data//var//log//access.log;\"",
+            "#access_log /tmp/log.log;"
+        ]
+
+        for test in TEST_CASES:
+            check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
+                pipes.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]), shell=True
+            )
+
+

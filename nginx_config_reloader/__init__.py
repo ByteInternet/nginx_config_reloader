@@ -45,13 +45,20 @@ SYSLOG_SOCKET = '/dev/log'
 # - also takes into account double slashes
 # Because of bash escaping problems we define quote's in octal format \042 == ' and \047 == "
 ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*" \
-                        "(\\042|\\047)?" \
+                        "(\\042|\\047)?\s*" \
                         "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))" \
-                        "(\\042|\\047)?"
+                        "(\\042|\\047)?\s*"
 
 # For security reasons the following nginx configuration parameters are forbidden
 FORBIDDEN_CONFIG_REGEX = \
-    [("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.")]
+    [
+        ("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed."),
+        ("^(?!\s*#)\s*(access|error)_log\s*"
+         "(\\042|\\047)?\s*"
+         "(?!(off|on|/+data/+))(?=.*\.\.|/+(?!data)|\w)"
+         "(\\042|\\047)?\s*",
+         "It's not allowed store access_log or error_log outside of /data/.")
+     ]
 
 logger = logging.getLogger(__name__)
 
