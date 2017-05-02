@@ -49,6 +49,9 @@ ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*" \
                         "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))" \
                         "(\\042|\\047)?"
 
+# For security reasons the following nginx configuration parameters are forbidden
+FORBIDDEN_CONFIG_REGEX = \
+    [("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.")]
 
 logger = logging.getLogger(__name__)
 
@@ -117,11 +120,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
 
     @staticmethod
-    def assert_no_includes_in_config():
+    def assert_regex_not_present(regex):
         """
-        Verify that there are no includes to files outside of the /etc/nginx/ directory in the user config
-        Relative includes are OK
-        :return None|CalledProcessError:
+        Assert regex not present in nginx config directory
+        :param str regex:
         """
         if os.path.isdir(DIR_TO_WATCH):
             # Using include or load_module is forbidden unless
@@ -130,14 +132,14 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             # - the include is absolute but to the MAIN_CONFIG_DIR
             check_external_resources = \
                 "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                    ILLEGAL_INCLUDE_REGEX, DIR_TO_WATCH
+                    regex, DIR_TO_WATCH
                 )
             subprocess.check_output(check_external_resources, shell=True)
 
     def apply_new_config(self):
         if not self.allow_includes:
             try:
-                self.assert_no_includes_in_config()
+                self.assert_regex_not_present(ILLEGAL_INCLUDE_REGEX)
             except subprocess.CalledProcessError:
                 self.logger.error("Config is not allowed to load external resources")
                 self.write_error_file(
@@ -147,6 +149,16 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                     "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"
                 )
                 return False
+
+        for rules in FORBIDDEN_CONFIG_REGEX:
+            try:
+                self.assert_regex_not_present(rules[0])
+            except subprocess.CalledProcessError:
+                error = "Unable to load config: " + rules[1]
+                self.logger.error(error)
+                self.write_error_file(error)
+                return False
+
         try:
             self.install_magento_config()
         except OSError:

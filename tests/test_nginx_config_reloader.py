@@ -185,14 +185,15 @@ class TestConfigReloader(TestCase):
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
-    def test_that_apply_new_config_writes_error_message_to_source_dir(self):
+    def test_that_apply_new_config_writes_error_message_to_source_dir_if_body_temp_path_check_fails(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops!')
 
         tm = nginx_config_reloader.NginxConfigReloader(allow_includes=True)
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
-        self.assertEqual(contents, 'oops!')
+        self.assertEqual(
+            contents, 'Unable to load config: Usage of configuration parameter client_body_temp_path is not allowed.')
 
     def test_that_apply_new_config_writes_error_message_to_source_dir_if_include_is_rejected(self):
         self.isdir = self.set_up_context_manager_patch(
@@ -234,10 +235,11 @@ class TestConfigReloader(TestCase):
         copytree.side_effect = OSError('Directory doesnt exist')
 
         tm = nginx_config_reloader.NginxConfigReloader(allow_includes=True)
-        tm.apply_new_config()
+        result = tm.apply_new_config()
 
-        self.assertEqual(len(self.test_config.mock_calls), 0)
+        self.assertEqual(len(self.test_config.mock_calls), len(nginx_config_reloader.FORBIDDEN_CONFIG_REGEX))
         self.assertEqual(len(self.kill.mock_calls), 0)
+        self.assertFalse(result)
 
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')
