@@ -5,7 +5,7 @@ from nginx_config_reloader import NginxConfigReloader, ILLEGAL_INCLUDE_REGEX, FO
 from tests.testcase import TestCase
 
 
-class TestAssertNoIncludesInConfig(TestCase):
+class TestAssertNoForbiddenStatementsInConfig(TestCase):
     def setUp(self):
         self.isdir = self.set_up_patch(
             'nginx_config_reloader.os.path.isdir'
