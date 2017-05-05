@@ -161,7 +161,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             try:
                 self.assert_regex_not_present(rules[0])
             except subprocess.CalledProcessError:
-                error = "Unable to load config: " + rules[1]
+                error = "Unable to load config: {}".format(rules[1])
                 self.logger.error(error)
                 self.write_error_file(error)
                 return False
