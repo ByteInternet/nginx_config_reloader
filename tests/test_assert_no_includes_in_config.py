@@ -98,10 +98,12 @@ class TestAssertNoIncludesInConfig(TestCase):
             "access_log '/var/log/nginx/acceptatie.log;'",
             "     error_log \"/var/log/nginx/acceptatie.error.log info;\"",
             "access_log   '/tmp/staging.log ';",
-            "access_log   \"output.log;\"",  # would be placed in /usr/share/nginx/output.log
-            "access_log  \"/usr/output.log;\"",
+            "access_log   \"output.log\";",  # would be placed in /usr/share/nginx/output.log
+            "access_log  \"/usr/output.log\";",
             "access_log  '/tmp/staging.log ';",
             "access_log  ' /tmp/staging.log';",
+            "access_log  ../../../some.log;",
+            "access_log  \"../some.log\";",
         ]
 
         for test in TEST_CASES:
