@@ -1,7 +1,7 @@
 import pipes
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, call
 
-from nginx_config_reloader import NginxConfigReloader, ILLEGAL_INCLUDE_REGEX, FORBIDDEN_CONFIG_REGEX
+from nginx_config_reloader import NginxConfigReloader, FORBIDDEN_CONFIG_REGEX
 from tests.testcase import TestCase
 
 
@@ -18,21 +18,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
     def test_assert_no_includes_in_config_does_not_check_config_if_no_dir_to_watch(self):
         self.isdir.return_value = False
 
-        NginxConfigReloader.assert_regex_not_present(ILLEGAL_INCLUDE_REGEX)
+        NginxConfigReloader.check_no_forbidden_config_directives_are_present(NginxConfigReloader())
 
         self.assertFalse(self.check_output.called)
 
-    def test_assert_no_includes_in_config_checks_user_nginx_dir_for_forbidden_includes(self):
-        NginxConfigReloader.assert_regex_not_present(ILLEGAL_INCLUDE_REGEX)
-
-        expected_command = "[ $(grep -r -P '^(?!\\s*#)\\s*(include|load_module)" \
-                           "\\s*(\\042|\\047)?\s*(?=.*\\.\\.|/+etc/+nginx/+app_bak|" \
-                           "/+(?!etc/+nginx))(\\042|\\047)?\s*' " \
-                           "'/data/web/nginx' | wc -l) -lt 1 ]"
-        self.check_output.assert_called_once_with(expected_command, shell=True)
-
     def test_include_prevention_legal_includes(self):
-        no_matches = [
+        TEST_CASES = [
             "include /etc/nginx/fastcgi_params",
             "include \"/etc/nginx/php-handler.conf\";",
             "include '/etc/nginx/php-handler.conf';",
@@ -45,12 +36,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             "include /etc//nginx/fastcgi_params",
         ]
 
-        for line in no_matches:
-            check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(pipes.quote(line), ILLEGAL_INCLUDE_REGEX),
-                         shell=True)
+        for line in TEST_CASES:
+            check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
+                pipes.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]), shell=True)
 
     def test_include_prevention_illegal_includes(self):
-        matches = [
+        TEST_CASES = [
             "include /data/web/nginx/someexample.allow;",
             "include /etc/nginx/../../data/web/banaan.config",
             'include "/etc/nginx/../../data/web/banaan.config"',
@@ -66,10 +57,10 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             'include " /data/web//banaan.config"'
         ]
 
-        for line in matches:
+        for line in TEST_CASES:
             with self.assertRaises(CalledProcessError):
                 check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                    pipes.quote(line), ILLEGAL_INCLUDE_REGEX), shell=True
+                    pipes.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]), shell=True
                 )
 
     def test_forbidden_config_client_body_temp_path_regex_unhappy_case(self):
