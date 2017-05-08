@@ -44,24 +44,37 @@ SYSLOG_SOCKET = '/dev/log'
 # - but not in the BACKUP_CONFIG_DIR
 # - also takes into account double slashes
 # Because of bash escaping problems we define quote's in octal format \042 == ' and \047 == "
-ILLEGAL_INCLUDE_REGEX = "^(?!\s*#)\s*(include|load_module)\s*" \
-                        "(\\042|\\047)?" \
-                        "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))" \
-                        "(\\042|\\047)?"
 
+# For security reasons the following nginx configuration parameters are forbidden
+FORBIDDEN_CONFIG_REGEX = \
+    [
+        ("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.\n"),
+        ("^(?!\s*#)\s*(access|error)_log\s*"
+         "(\\042|\\047)?\s*"
+         "(?!(off|on|/+data/+))(?=.*\.\.|/+(?!data)|\w)"
+         "(\\042|\\047)?\s*",
+         "It's not allowed store access_log or error_log outside of /data/.\n"),
+        ("^(?!\s*#)\s*(include|load_module)\s*"
+         "(\\042|\\047)?\s*"
+         "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))"
+         "(\\042|\\047)?\s*",
+         "You are not allowed to use include or load_module in the nginx config unless the path is relative "
+         "or in the main nginx config directory. "
+         "See the NGINX dos and don'ts in this article: "
+         "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"),
+    ]
 
 logger = logging.getLogger(__name__)
 
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
 
-    def my_init(self, logger=None, allow_includes=False):
+    def my_init(self, logger=None):
         """Constructor called by ProcessEvent"""
         if not logger:
             self.logger = logging
         else:
             self.logger = logger
-        self.allow_includes = allow_includes
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -116,37 +129,33 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         # Move temporary symlink to actual location, overwriting existing link or file
         os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
 
-    @staticmethod
-    def assert_no_includes_in_config():
+    def check_no_forbidden_config_directives_are_present(self):
         """
-        Verify that there are no includes to files outside of the /etc/nginx/ directory in the user config
-        Relative includes are OK
-        :return None|CalledProcessError:
+        Loop over the :FORBIDDEN_CONFIG_REGEX: to check if nginx config directory contains forbidden configuration
+         options
+        :return bool:
+                        True    if forbidden config directives are present
+                        False   if check couldn't find any forbidden config flags
         """
         if os.path.isdir(DIR_TO_WATCH):
-            # Using include or load_module is forbidden unless
-            # - it is in a comment
-            # - the include is a relative path but does not start with ..
-            # - the include is absolute but to the MAIN_CONFIG_DIR
-            check_external_resources = \
-                "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                    ILLEGAL_INCLUDE_REGEX, DIR_TO_WATCH
-                )
-            subprocess.check_output(check_external_resources, shell=True)
+            for rules in FORBIDDEN_CONFIG_REGEX:
+                try:
+                    check_external_resources = \
+                        "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
+                            rules[0], DIR_TO_WATCH
+                        )
+                    subprocess.check_output(check_external_resources, shell=True)
+                except subprocess.CalledProcessError:
+                    error = "Unable to load config: {}".format(rules[1])
+                    self.logger.error(error)
+                    self.write_error_file(error)
+                    return True
+            return False
 
     def apply_new_config(self):
-        if not self.allow_includes:
-            try:
-                self.assert_no_includes_in_config()
-            except subprocess.CalledProcessError:
-                self.logger.error("Config is not allowed to load external resources")
-                self.write_error_file(
-                    "You are not allowed to use include or load_module in the nginx config unless the path is relative "
-                    "or in the main nginx config directory. "
-                    "See the NGINX dos and don'ts in this article: "
-                    "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"
-                )
-                return False
+        if self.check_no_forbidden_config_directives_are_present():
+            return False
+
         try:
             self.install_magento_config()
         except OSError:
@@ -216,7 +225,7 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
-def wait_loop(logger=None, allow_includes=False):
+def wait_loop(logger=None):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -226,7 +235,7 @@ def wait_loop(logger=None, allow_includes=False):
     inner loop and we're back here in the outer loop.
     """
     wm = pyinotify.WatchManager()
-    handler = NginxConfigReloader(logger=logger, allow_includes=allow_includes)
+    handler = NginxConfigReloader(logger=logger)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
 
     while True:
@@ -252,11 +261,6 @@ def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
-    parser.add_argument(
-        '--allow-includes', action='store_true',
-        help='Allow the config to contain includes outside of'
-             ' the system nginx config directory (default False)'
-    )
     return parser.parse_args()
 
 
@@ -270,7 +274,7 @@ def main():
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-        wait_loop(logger=logger, allow_includes=args.allow_includes)
+        wait_loop(logger=logger)
 
     if args.daemon:
         handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
@@ -280,7 +284,7 @@ def main():
 
         pidfile = daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
         with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
-            wait_loop(logger=logger, allow_includes=args.allow_includes)
+            wait_loop(logger=logger)
 
     else:
         tm = NginxConfigReloader()
