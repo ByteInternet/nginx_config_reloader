@@ -65,7 +65,6 @@ class TestMain(TestCase):
 
         main()
 
-        self.assertFalse(self.daemoncontext.called)
         self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
@@ -74,7 +73,6 @@ class TestMain(TestCase):
 
         main()
 
-        self.assertTrue(self.daemoncontext.called)
         self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
