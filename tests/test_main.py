@@ -65,10 +65,7 @@ class TestMain(TestCase):
 
         main()
 
-        self.wait_loop.assert_called_once_with(
-            logger=self.get_logger.return_value,
-            allow_includes=False
-        )
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
         self.parse_nginx_config_reloader_arguments.return_value.allow_includes = True
@@ -76,10 +73,7 @@ class TestMain(TestCase):
 
         main()
 
-        self.wait_loop.assert_called_once_with(
-            logger=self.get_logger.return_value,
-            allow_includes=True
-        )
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
         self.parse_nginx_config_reloader_arguments.return_value.monitor = True
