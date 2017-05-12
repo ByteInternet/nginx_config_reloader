@@ -1,3 +1,20 @@
+nginx-config-reloader (20170512.135642) xenial; urgency=medium
+
+  [ Rick van de Loo ]
+  * put run once mode back in
+  * always restart nginx_config_reloader
+
+  [ Daniel Genis ]
+  * disallow usage of client_body_temp_path
+  * deny placing log files outside of /data/
+  * add test for ../../some.log
+  * rename test file showing it tests all forbidden config params
+  * use py3 compatible format
+  * remove allow absolute includes argument, refactor pre loading config assertions
+  * remove obsolete test statements post merge
+
+ -- Daniel Genis <daniel@byte.nl>  Fri, 12 May 2017 13:57:12 +0200
+
 nginx-config-reloader (20170208.172203) xenial; urgency=medium
 
   * Compatibility with Xenial/systemd
