@@ -269,6 +269,7 @@ def parse_nginx_config_reloader_arguments():
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     parser.add_argument('--nomagentoconfig', action='store_true', help='Disable Magento configuration')
     parser.add_argument('--nocustomconfig', action='store_true', help='Disable copying custom configuration')
+    parser.add_argument('--watchdir', '-w', help='Set directory to watch')
     return parser.parse_args()
 
 
@@ -283,6 +284,10 @@ def main():
     if args.nocustomconfig:
         global INSTALL_CUSTOM_CONFIG
         INSTALL_CUSTOM_CONFIG = False
+
+    if args.watchdir:
+        global DIR_TO_WATCH
+        DIR_TO_WATCH = args.watchdir
 
     if args.monitor:
         handler = logging.StreamHandler()
