@@ -25,6 +25,7 @@ MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
 MAGENTO2_FLAG = DIR_TO_WATCH + '/magento2.flag'
 
 INSTALL_MAGENTO_CONFIG = True
+INSTALL_CUSTOM_CONFIG = True
 
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
@@ -165,17 +166,19 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                 self.logger.error("Installation of magento config failed")
                 return False
 
-        try:
-            self.install_new_custom_config_dir()
-        except OSError:
-            self.logger.error("Installation of custom config failed")
-            return False
+        if INSTALL_CUSTOM_CONFIG:
+            try:
+                self.install_new_custom_config_dir()
+            except OSError:
+                self.logger.error("Installation of custom config failed")
+                return False
 
         try:
             subprocess.check_output([NGINX, '-t'], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             self.logger.info("Config check failed")
-            self.restore_old_custom_config_dir()
+            if INSTALL_CUSTOM_CONFIG:
+                self.restore_old_custom_config_dir()
             self.write_error_file(e.output)
             return False
         else:
@@ -265,6 +268,7 @@ def parse_nginx_config_reloader_arguments():
     parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     parser.add_argument('--nomagentoconfig', action='store_true', help='Disable Magento configuration')
+    parser.add_argument('--nocustomconfig', action='store_true', help='Disable copying custom configuration')
     return parser.parse_args()
 
 
@@ -275,6 +279,10 @@ def main():
     if args.nomagentoconfig:
         global INSTALL_MAGENTO_CONFIG
         INSTALL_MAGENTO_CONFIG = False
+
+    if args.nocustomconfig:
+        global INSTALL_CUSTOM_CONFIG
+        INSTALL_CUSTOM_CONFIG = False
 
     if args.monitor:
         handler = logging.StreamHandler()
