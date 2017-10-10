@@ -24,6 +24,8 @@ MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
 MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
 MAGENTO2_FLAG = DIR_TO_WATCH + '/magento2.flag'
 
+INSTALL_MAGENTO_CONFIG = True
+
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
@@ -156,11 +158,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if self.check_no_forbidden_config_directives_are_present():
             return False
 
-        try:
-            self.install_magento_config()
-        except OSError:
-            self.logger.error("Installation of magento config failed")
-            return False
+        if INSTALL_MAGENTO_CONFIG:
+            try:
+                self.install_magento_config()
+            except OSError:
+                self.logger.error("Installation of magento config failed")
+                return False
 
         try:
             self.install_new_custom_config_dir()
@@ -261,12 +264,17 @@ def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
+    parser.add_argument('--nomagentoconfig', action='store_true', help='Disable Magento configuration')
     return parser.parse_args()
 
 
 def main():
 
     args = parse_nginx_config_reloader_arguments()
+
+    if args.nomagentoconfig:
+        global INSTALL_MAGENTO_CONFIG
+        INSTALL_MAGENTO_CONFIG = False
 
     if args.monitor:
         handler = logging.StreamHandler()
