@@ -1,0 +1,12 @@
+[Unit]
+Description=Daemon that detects, checks and installs user provided nginx configuration files
+
+[Service]
+ExecStart=/usr/bin/nginx_config_reloader --monitor
+StandardOutput=null
+StandardError=journal
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

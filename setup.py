@@ -2,12 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
     name='nginx_config_reloader',
-    version='20160412.145423',
+    version='20170208.170500',
     packages=find_packages(exclude=['test*']),
     url='',
     license='',
-    author='maarten',
-    author_email='maarten@byte.nl',
+    author='Willem de Groot',
+    author_email='willem@byte.nl',
     description='nginx config file monitor and reloader',
     entry_points={
         'console_scripts': [

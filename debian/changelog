@@ -1,4 +1,8 @@
-nginx-config-reloader (20170509.144804) xenial; urgency=medium
+nginx-config-reloader (20170512.135642) xenial; urgency=medium
+
+  [ Rick van de Loo ]
+  * put run once mode back in
+  * always restart nginx_config_reloader
 
   [ Daniel Genis ]
   * disallow usage of client_body_temp_path
@@ -7,8 +11,17 @@ nginx-config-reloader (20170509.144804) xenial; urgency=medium
   * rename test file showing it tests all forbidden config params
   * use py3 compatible format
   * remove allow absolute includes argument, refactor pre loading config assertions
+  * remove obsolete test statements post merge
 
- -- Daniel Genis <daniel@byte.nl>  Tue, 09 May 2017 14:48:14 +0200
+ -- Daniel Genis <daniel@byte.nl>  Fri, 12 May 2017 13:57:12 +0200
+
+nginx-config-reloader (20170208.172203) xenial; urgency=medium
+
+  * Compatibility with Xenial/systemd
+  * Remove unused code
+  * Remove unused deps
+
+ -- Willem de Groot <gwillem@gmail.com>  Wed, 08 Feb 2017 17:22:19 +0100
 
 nginx-config-reloader (20161011.103915) xenial; urgency=medium
 

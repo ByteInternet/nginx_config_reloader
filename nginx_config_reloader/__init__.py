@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import fnmatch
-import daemon
-import daemon.pidlockfile
 import pyinotify
 import subprocess
 import signal
@@ -259,37 +257,33 @@ def wait_loop(logger=None):
 
 def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--daemon', '-d', action='store_true', help='Fork to background and run as daemon')
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     return parser.parse_args()
 
 
-def main():
+def get_logger():
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    return logger
 
+
+def main():
     args = parse_nginx_config_reloader_arguments()
+    log = get_logger()
 
     if args.monitor:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(handler)
-
-        wait_loop(logger=logger)
-
-    if args.daemon:
-        handler = logging.handlers.SysLogHandler(address=SYSLOG_SOCKET)
-        handler.setFormatter(logging.Formatter('%(name)-12s %(levelname)-8s %(message)s'))
-        logger.setLevel(logging.INFO)
-        logger.addHandler(handler)
-
-        pidfile = daemon.pidlockfile.PIDLockFile('/var/run/%s.pid' % os.path.basename(sys.argv[0]))
-        with daemon.DaemonContext(pidfile=pidfile, files_preserve=[handler.socket.fileno()]):
-            wait_loop(logger=logger)
-
+        # Track changed files in the nginx config dir and reload on change
+        wait_loop(logger=log)
+        # should never return
+        return 1
     else:
-        tm = NginxConfigReloader()
-        tm.apply_new_config()
-
+        # Reload the config once
+        NginxConfigReloader(
+            logger=log,
+        ).apply_new_config()
+        return 0
 
 if __name__ == '__main__':
     sys.exit(main())
