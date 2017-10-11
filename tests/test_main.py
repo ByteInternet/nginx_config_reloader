@@ -35,18 +35,6 @@ class TestMain(TestCase):
 
         self.reloader.assert_called_once_with(
             logger=self.get_logger.return_value,
-            allow_includes=False
-        )
-        self.reloader.return_value.apply_new_config()
-
-    def test_main_reloads_config_once_if_monitor_mode_not_specified_and_includes_allowed(self):
-        self.parse_nginx_config_reloader_arguments.return_value.allow_includes = True
-
-        main()
-
-        self.reloader.assert_called_once_with(
-            logger=self.get_logger.return_value,
-            allow_includes=True
         )
         self.reloader.return_value.apply_new_config()
 
