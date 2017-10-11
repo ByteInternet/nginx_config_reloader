@@ -1,5 +1,12 @@
 # nginx config reloader
 
+[DEPRECATED]
+
+Note: this branch is the last revision of this project that is compatible
+with Ubuntu Precise. This will remain here for legacy reasons. For further
+development, please base your changes on the master branch. The master
+branch is developed with Ubuntu Xenial in mind.
+
 Utility to check user-supplied nginx config files, install them, and reload
 nginx configuration if they work.
 
