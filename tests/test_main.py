@@ -1,21 +1,17 @@
 from mock import Mock
 
-from nginx_config_reloader import logger, main
+from nginx_config_reloader import main
 from tests.testcase import TestCase
 
 
 class TestMain(TestCase):
     def setUp(self):
-        self.args = Mock(
-            daemon=False,
-            monitor=True,
-        )
         self.parse_nginx_config_reloader_arguments = self.set_up_patch(
             'nginx_config_reloader.parse_nginx_config_reloader_arguments',
+            return_value=Mock(monitor=False, allow_includes=False)
         )
-        self.parse_nginx_config_reloader_arguments.return_value = self.args
-        self.daemoncontext = self.set_up_context_manager_patch(
-            'nginx_config_reloader.daemon.DaemonContext'
+        self.get_logger = self.set_up_context_manager_patch(
+            'nginx_config_reloader.get_logger'
         )
         self.wait_loop = self.set_up_context_manager_patch(
             'nginx_config_reloader.wait_loop'
@@ -24,33 +20,59 @@ class TestMain(TestCase):
             'nginx_config_reloader.NginxConfigReloader'
         )
 
-    def test_main_parses_arguments(self):
+    def test_main_gets_logger(self):
+        main()
+
+        self.get_logger.assert_called_once_with()
+
+    def test_main_parses_nginx_config_reloader_arguments(self):
         main()
 
         self.parse_nginx_config_reloader_arguments.assert_called_once_with()
 
-    def test_main_runs_the_reloader_in_the_foreground_if_monitor_is_specified(self):
+    def test_main_reloads_config_once_if_monitor_mode_not_specified(self):
         main()
 
-        self.assertFalse(self.daemoncontext.called)
-        self.wait_loop.assert_called_once_with(logger=logger)
+        self.reloader.assert_called_once_with(
+            logger=self.get_logger.return_value,
+        )
+        self.reloader.return_value.apply_new_config()
 
-    def test_main_runs_the_reloader_in_the_background_if_daemon_is_specified(self):
-        self.args.daemon = True
-        self.args.monitor = False
-        self.parse_nginx_config_reloader_arguments.return_value = self.args
+    def test_main_does_not_watch_the_config_dir_if_monitor_mode_not_specified(self):
+        main()
+
+        self.assertFalse(self.wait_loop.called)
+
+    def test_main_returns_zero_if_no_errors_after_reloading_once(self):
+        ret = main()
+
+        self.assertEqual(0, ret)
+
+    def test_main_watches_the_config_dir_if_monitor_specified(self):
+        self.parse_nginx_config_reloader_arguments.return_value.monitor = True
 
         main()
 
-        self.assertTrue(self.daemoncontext.called)
-        self.wait_loop.assert_called_once_with(logger=logger)
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
-    def test_main_runs_the_reloader_once_if_no_monitor_or_daemon_is_specified(self):
-        self.args.daemon = False
-        self.args.monitor = False
-        self.parse_nginx_config_reloader_arguments.return_value = self.args
+    def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
+        self.parse_nginx_config_reloader_arguments.return_value.allow_includes = True
+        self.parse_nginx_config_reloader_arguments.return_value.monitor = True
 
         main()
 
-        self.reloader.assert_called_once_with()
-        self.reloader.return_value.apply_new_config.assert_called_once_with()
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
+
+    def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
+        self.parse_nginx_config_reloader_arguments.return_value.monitor = True
+
+        main()
+
+        self.assertFalse(self.reloader.called)
+
+    def test_main_returns_nonzero_if_monitor_mode_and_loop_returns(self):
+        self.parse_nginx_config_reloader_arguments.return_value.monitor = True
+
+        ret = main()
+
+        self.assertEqual(1, ret)

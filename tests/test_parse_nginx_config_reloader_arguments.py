@@ -19,8 +19,6 @@ class TestParseNginxConfigReloaderArguments(TestCase):
         parse_nginx_config_reloader_arguments()
 
         expected_calls = [
-            call("--daemon", '-d', action='store_true',
-                 help='Fork to background and run as daemon'),
             call('--monitor', '-m', action='store_true',
                  help='Monitor files on foreground with output'),
         ]
@@ -32,4 +30,3 @@ class TestParseNginxConfigReloaderArguments(TestCase):
         ret = parse_nginx_config_reloader_arguments()
 
         self.assertEqual(ret, self.parser.return_value.parse_args.return_value)
-
