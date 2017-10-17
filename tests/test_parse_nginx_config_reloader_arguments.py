@@ -1,5 +1,6 @@
 from mock import call
 
+import nginx_config_reloader
 from nginx_config_reloader import parse_nginx_config_reloader_arguments
 from tests.testcase import TestCase
 
@@ -21,6 +22,12 @@ class TestParseNginxConfigReloaderArguments(TestCase):
         expected_calls = [
             call('--monitor', '-m', action='store_true',
                  help='Monitor files on foreground with output'),
+            call('--nomagentoconfig', action='store_true',
+                 help='Disable Magento configuration', default=False),
+            call('--nocustomconfig', action='store_true',
+                 help='Disable copying custom configuration', default=False),
+            call('--watchdir', '-w',
+                help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH)
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls

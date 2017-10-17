@@ -45,7 +45,7 @@ class TestConfigReloader(TestCase):
     def test_that_apply_new_config_moves_files_to_dest_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._dest('myfile'))
@@ -55,7 +55,7 @@ class TestConfigReloader(TestCase):
         self._write_file(self._source('myfile'), 'config contents')
         shutil.rmtree(self.dest, ignore_errors=True)
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._dest('myfile'))
@@ -65,7 +65,7 @@ class TestConfigReloader(TestCase):
         self._write_file(self.mag1_conf, 'magento1 config')
         self._write_file(self.mag2_conf, 'magento2 config')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self.mag_conf)
@@ -77,7 +77,7 @@ class TestConfigReloader(TestCase):
 
         os.unlink(self.mag1_conf)
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         ret = tm.apply_new_config()
 
         self.assertFalse(ret)
@@ -91,7 +91,7 @@ class TestConfigReloader(TestCase):
 
         mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         ret = tm.apply_new_config()
 
         self.assertFalse(ret)
@@ -106,7 +106,7 @@ class TestConfigReloader(TestCase):
 
         os.unlink(self.mag2_conf)
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         ret = tm.apply_new_config()
 
         self.assertFalse(ret)
@@ -119,7 +119,7 @@ class TestConfigReloader(TestCase):
         with NamedTemporaryFile() as f:
             nginx_config_reloader.MAGENTO2_FLAG = f.name
 
-            tm = nginx_config_reloader.NginxConfigReloader()
+            tm = self._get_nginx_config_reloader_instance(magento2_flag=f.name)
             tm.apply_new_config()
 
         contents = self._read_file(self.mag_conf)
@@ -129,14 +129,14 @@ class TestConfigReloader(TestCase):
     def test_that_apply_new_config_keeps_files_in_source_dir(self):
         self._write_file(self._source('myfile'), 'config contents')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._source('myfile'))
         self.assertEqual(contents, 'config contents')
 
     def test_that_apply_new_config_sends_hup_to_nginx(self):
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
@@ -150,7 +150,7 @@ class TestConfigReloader(TestCase):
         with mock.patch('os.unlink') as mock_unlink:
             self.test_config.return_value = True
 
-            tm = nginx_config_reloader.NginxConfigReloader()
+            tm = self._get_nginx_config_reloader_instance()
             tm.apply_new_config()
 
             error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
@@ -161,7 +161,7 @@ class TestConfigReloader(TestCase):
         self._write_file(self._dest('conffile'), 'working config')
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._dest('conffile'))
@@ -172,7 +172,7 @@ class TestConfigReloader(TestCase):
         shutil.rmtree(self.dest, ignore_errors=True)
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self.dest))
@@ -180,7 +180,7 @@ class TestConfigReloader(TestCase):
     def test_that_apply_new_config_doesnt_hup_nginx_if_config_check_fails(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertEqual(len(self.kill.mock_calls), 0)
@@ -188,7 +188,7 @@ class TestConfigReloader(TestCase):
     def test_that_apply_new_config_writes_error_message_to_source_dir_if_body_temp_path_check_fails(self):
         self.test_config.side_effect = subprocess.CalledProcessError(1, 'nginx', 'oops!')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
@@ -201,7 +201,7 @@ class TestConfigReloader(TestCase):
         self.isdir.return_value = True
         self.test_config.side_effect = subprocess.CalledProcessError(1, '', '')  # grep with -q
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
@@ -215,7 +215,7 @@ class TestConfigReloader(TestCase):
 
         self.test_config.side_effect = subprocess.CalledProcessError(1, '', '')  # grep with -q
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
@@ -224,7 +224,7 @@ class TestConfigReloader(TestCase):
     def test_that_apply_new_config_doesnt_kill_if_no_pidfile(self):
         self.get_pid.return_value = None
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertEqual(len(self.kill.mock_calls), 0)
@@ -233,7 +233,7 @@ class TestConfigReloader(TestCase):
         copytree = self.set_up_patch('shutil.copytree')
         copytree.side_effect = OSError('Directory doesnt exist')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         result = tm.apply_new_config()
 
         self.assertEqual(len(self.test_config.mock_calls), len(nginx_config_reloader.FORBIDDEN_CONFIG_REGEX))
@@ -243,7 +243,7 @@ class TestConfigReloader(TestCase):
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self._dest(nginx_config_reloader.ERROR_FILE)))
@@ -251,7 +251,7 @@ class TestConfigReloader(TestCase):
     def test_that_files_starting_with_dot_are_not_moved_to_dest_dir(self):
         self._write_file(self._source('.config.swp'), 'asdf')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self._dest('.config.swp')))
@@ -259,33 +259,36 @@ class TestConfigReloader(TestCase):
     def test_that_flags_are_not_moved_to_dest_dir(self):
         self._write_file(self._source('whatever.flag'), '')
 
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.assertFalse(os.path.exists(self._dest('whatever.flag')))
 
     def test_that_handle_event_applies_config(self):
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('some_file'))
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
     def test_that_flags_trigger_config_reload(self):
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('magento2.flag'))
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
     def test_that_handle_event_doesnt_apply_config_on_change_of_error_file(self):
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event(nginx_config_reloader.ERROR_FILE))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
     def test_that_handle_event_doesnt_apply_config_on_change_of_invisible_file(self):
-        tm = nginx_config_reloader.NginxConfigReloader()
+        tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('.config.swp'))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
+
+    def _get_nginx_config_reloader_instance(self, magento2_flag=None):
+        return nginx_config_reloader.NginxConfigReloader(dir_to_watch=self.source, magento2_flag=magento2_flag)
 
     def _write_file(self, name, contents):
         with open(name, 'w') as f:
