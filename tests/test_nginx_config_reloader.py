@@ -240,6 +240,22 @@ class TestConfigReloader(TestCase):
         self.assertEqual(len(self.kill.mock_calls), 0)
         self.assertFalse(result)
 
+    def test_that_apply_new_config_does_install_magento_config_by_default(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+
+        self.assertTrue(tm.install_magento_config.called)
+
+    def test_that_apply_new_config_does_install_custom_config_dir_by_default(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+
+        self.assertTrue(tm.install_new_custom_config_dir.called)
+
     def test_that_apply_new_config_does_not_install_magento_config_if_specified(self):
         self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
 
