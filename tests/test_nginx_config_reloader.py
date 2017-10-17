@@ -240,6 +240,22 @@ class TestConfigReloader(TestCase):
         self.assertEqual(len(self.kill.mock_calls), 0)
         self.assertFalse(result)
 
+    def test_that_apply_new_config_does_not_install_magento_config_if_specified(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
+
+        tm = self._get_nginx_config_reloader_instance(no_magento_config=True)
+        tm.apply_new_config()
+
+        self.assertFalse(tm.install_magento_config.called)
+
+    def test_that_apply_new_config_does_not_install_custom_config_dir_if_specified(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        tm = self._get_nginx_config_reloader_instance(no_custom_config=True)
+        tm.apply_new_config()
+
+        self.assertFalse(tm.install_new_custom_config_dir.called)
+
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')
 
@@ -287,8 +303,13 @@ class TestConfigReloader(TestCase):
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
-    def _get_nginx_config_reloader_instance(self, magento2_flag=None):
-        return nginx_config_reloader.NginxConfigReloader(dir_to_watch=self.source, magento2_flag=magento2_flag)
+    def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
+        return nginx_config_reloader.NginxConfigReloader(
+            no_magento_config=no_magento_config,
+            no_custom_config=no_custom_config,
+            dir_to_watch=self.source,
+            magento2_flag=magento2_flag
+        )
 
     def _write_file(self, name, contents):
         with open(name, 'w') as f:
