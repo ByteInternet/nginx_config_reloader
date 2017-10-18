@@ -1,3 +1,21 @@
+nginx-config-reloader (20171018.120533) xenial; urgency=medium
+
+  [ Timon de Groot ]
+  * Add argument --nomagentoconfig
+  * Add argument --nocustomconfig
+  * Add argument --watchdir
+  * Integrate new arguments into code instead of hacking variable modification
+  * Update tests for new functionality
+  * Add tests for disabling Magento/custom configuration
+  * Add tests for default Magento/custom configuration behavior
+
+  [ Rick van de Loo ]
+  * add travis file
+  * remove unused constants
+  * remove test for removed flag
+
+ -- Rick van de Loo <vdloo@workstation4>  Wed, 18 Oct 2017 12:05:39 +0200
+
 nginx-config-reloader (20170512.135642) xenial; urgency=medium
 
   [ Rick van de Loo ]
