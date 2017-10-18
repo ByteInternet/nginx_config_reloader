@@ -20,9 +20,7 @@ BACKUP_CONFIG_DIR = MAIN_CONFIG_DIR + '/app_bak'
 MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
 MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
 MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
-
-INSTALL_MAGENTO_CONFIG = True
-INSTALL_CUSTOM_CONFIG = True
+MAGENTO2_FLAG = DIR_TO_WATCH + '/magento2.flag'
 
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
@@ -69,27 +67,12 @@ logger = logging.getLogger(__name__)
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
 
-    def my_init(self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH, magento2_flag=None):
-        """Constructor called by ProcessEvent
-
-        :param obj logger: The logger object
-        :param bool no_magento_config: True if we should not install Magento configuration
-        :param bool no_custom_config: True if we should not copy custom configuration
-        :param str dir_to_watch: The directory to watch
-        :param str magento2_flag: Magento 2 flag location
-        """
+    def my_init(self, logger=None):
+        """Constructor called by ProcessEvent"""
         if not logger:
             self.logger = logging
         else:
             self.logger = logger
-        self.no_magento_config = no_magento_config
-        self.no_custom_config = no_custom_config
-        self.dir_to_watch = dir_to_watch
-        if not magento2_flag:
-            self.magento2_flag = dir_to_watch + '/magento2.flag'
-        else:
-            self.magento2_flag = magento2_flag
-        self.logger.info(self.dir_to_watch)
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -136,7 +119,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             pass
 
         # Symlink new config to temporary filename
-        if os.path.isfile(self.magento2_flag):
+        if os.path.isfile(MAGENTO2_FLAG):
             os.symlink(MAGENTO2_CONF, MAGENTO_CONF_NEW)
         else:
             os.symlink(MAGENTO1_CONF, MAGENTO_CONF_NEW)
@@ -152,12 +135,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                         True    if forbidden config directives are present
                         False   if check couldn't find any forbidden config flags
         """
-        if os.path.isdir(self.dir_to_watch):
+        if os.path.isdir(DIR_TO_WATCH):
             for rules in FORBIDDEN_CONFIG_REGEX:
                 try:
                     check_external_resources = \
                         "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                            rules[0], self.dir_to_watch
+                            rules[0], DIR_TO_WATCH
                         )
                     subprocess.check_output(check_external_resources, shell=True)
                 except subprocess.CalledProcessError:
@@ -171,31 +154,28 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if self.check_no_forbidden_config_directives_are_present():
             return False
 
-        if not self.no_magento_config:
-            try:
-                self.install_magento_config()
-            except OSError:
-                self.logger.error("Installation of magento config failed")
-                return False
+        try:
+            self.install_magento_config()
+        except OSError:
+            self.logger.error("Installation of magento config failed")
+            return False
 
-        if not self.no_custom_config:
-            try:
-                self.install_new_custom_config_dir()
-            except OSError:
-                self.logger.error("Installation of custom config failed")
-                return False
+        try:
+            self.install_new_custom_config_dir()
+        except OSError:
+            self.logger.error("Installation of custom config failed")
+            return False
 
         try:
             subprocess.check_output([NGINX, '-t'], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             self.logger.info("Config check failed")
-            if not self.no_custom_config:
-                self.restore_old_custom_config_dir()
+            self.restore_old_custom_config_dir()
             self.write_error_file(e.output)
             return False
         else:
             try:
-                os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
+                os.unlink(os.path.join(DIR_TO_WATCH, ERROR_FILE))
             except OSError:
                 pass
 
@@ -209,7 +189,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         completed = False
         while not completed:
             try:
-                shutil.copytree(self.dir_to_watch, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*SYNC_IGNORE_FILES))
+                shutil.copytree(DIR_TO_WATCH, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*SYNC_IGNORE_FILES))
                 completed = True
             except shutil.Error:
                 pass  # retry
@@ -235,7 +215,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             return None
 
     def write_error_file(self, error):
-        with open(os.path.join(self.dir_to_watch, ERROR_FILE), 'w') as f:
+        with open(os.path.join(DIR_TO_WATCH, ERROR_FILE), 'w') as f:
             f.write(error)
 
 
@@ -243,7 +223,7 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
-def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH):
+def wait_loop(logger=None):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -251,29 +231,23 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
     configuration changes in an inner event loop. When the monitored directory is
     renamed or removed, the inotify-handler raises an exception to break out of the
     inner loop and we're back here in the outer loop.
-
-    :param obj logger: The logger object
-    :param bool no_magento_config: True if we should not install Magento configuration
-    :param bool no_custom_config: True if we should not copy custom configuration
-    :param str dir_to_watch: The directory to watch
-    :return None:
     """
     wm = pyinotify.WatchManager()
-    handler = NginxConfigReloader(logger=logger, no_magento_config=no_magento_config, no_custom_config=no_custom_config, dir_to_watch=dir_to_watch)
+    handler = NginxConfigReloader(logger=logger)
     notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
 
     while True:
-        while not os.path.exists(dir_to_watch):
-            logger.warning("Configuration dir %s not found, waiting..." % dir_to_watch)
+        while not os.path.exists(DIR_TO_WATCH):
+            logger.warning("Configuration dir %s not found, waiting..." % DIR_TO_WATCH)
             time.sleep(5)
 
-        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS)
+        wm.add_watch(DIR_TO_WATCH, pyinotify.ALL_EVENTS)
 
         # Install initial configuration
         handler.apply_new_config()
 
         try:
-            logger.info("Listening for changes to %s" % dir_to_watch)
+            logger.info("Listening for changes to %s" % DIR_TO_WATCH)
             notifier.loop()
         except pyinotify.NotifierError as err:
             logger.critical(err)
@@ -284,9 +258,6 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
 def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
-    parser.add_argument('--nomagentoconfig', action='store_true', help='Disable Magento configuration', default=False)
-    parser.add_argument('--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False)
-    parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
     return parser.parse_args()
 
 
@@ -304,21 +275,13 @@ def main():
 
     if args.monitor:
         # Track changed files in the nginx config dir and reload on change
-        wait_loop(
-            logger=log,
-            no_magento_config=args.nomagentoconfig,
-            no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir
-        )
+        wait_loop(logger=log)
         # should never return
         return 1
     else:
         # Reload the config once
         NginxConfigReloader(
             logger=log,
-            no_magento_config=args.nomagentoconfig,
-            no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir
         ).apply_new_config()
         return 0
 

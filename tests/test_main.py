@@ -1,18 +1,14 @@
 from mock import Mock
 
-import shutil
-from tempfile import mkdtemp
 from nginx_config_reloader import main
 from tests.testcase import TestCase
 
 
 class TestMain(TestCase):
     def setUp(self):
-        self.source = mkdtemp()
         self.parse_nginx_config_reloader_arguments = self.set_up_patch(
             'nginx_config_reloader.parse_nginx_config_reloader_arguments',
-            return_value=Mock(monitor=False, allow_includes=False,
-                nomagentoconfig=False, nocustomconfig=False, watchdir=self.source)
+            return_value=Mock(monitor=False, allow_includes=False)
         )
         self.get_logger = self.set_up_context_manager_patch(
             'nginx_config_reloader.get_logger'
@@ -23,9 +19,6 @@ class TestMain(TestCase):
         self.reloader = self.set_up_context_manager_patch(
             'nginx_config_reloader.NginxConfigReloader'
         )
-
-    def tearDown(self):
-        shutil.rmtree(self.source, ignore_errors=True)
 
     def test_main_gets_logger(self):
         main()
@@ -42,9 +35,6 @@ class TestMain(TestCase):
 
         self.reloader.assert_called_once_with(
             logger=self.get_logger.return_value,
-            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
-            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
-            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir
         )
         self.reloader.return_value.apply_new_config()
 
@@ -63,12 +53,7 @@ class TestMain(TestCase):
 
         main()
 
-        self.wait_loop.assert_called_once_with(
-            logger=self.get_logger.return_value,
-            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
-            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
-            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir
-        )
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
         self.parse_nginx_config_reloader_arguments.return_value.allow_includes = True
@@ -76,12 +61,7 @@ class TestMain(TestCase):
 
         main()
 
-        self.wait_loop.assert_called_once_with(
-            logger=self.get_logger.return_value,
-            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
-            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
-            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir
-        )
+        self.wait_loop.assert_called_once_with(logger=self.get_logger.return_value)
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
         self.parse_nginx_config_reloader_arguments.return_value.monitor = True
