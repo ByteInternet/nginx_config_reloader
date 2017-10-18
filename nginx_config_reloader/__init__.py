@@ -21,9 +21,6 @@ MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
 MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
 MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
 
-INSTALL_MAGENTO_CONFIG = True
-INSTALL_CUSTOM_CONFIG = True
-
 NGINX = '/usr/sbin/nginx'
 NGINX_PID_FILE = '/var/run/nginx.pid'
 ERROR_FILE = 'nginx_error_output'
@@ -69,7 +66,10 @@ logger = logging.getLogger(__name__)
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
 
-    def my_init(self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH, magento2_flag=None):
+    def my_init(
+            self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
+            magento2_flag=None
+    ):
         """Constructor called by ProcessEvent
 
         :param obj logger: The logger object
@@ -284,8 +284,12 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
 def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
-    parser.add_argument('--nomagentoconfig', action='store_true', help='Disable Magento configuration', default=False)
-    parser.add_argument('--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False)
+    parser.add_argument(
+        '--nomagentoconfig', action='store_true', help='Disable Magento configuration', default=False
+    )
+    parser.add_argument(
+        '--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False
+    )
     parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
     return parser.parse_args()
 
