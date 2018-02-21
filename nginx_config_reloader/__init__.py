@@ -258,19 +258,33 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
     :param str dir_to_watch: The directory to watch
     :return None:
     """
+    dir_to_watch = os.path.abspath(dir_to_watch)
+
     wm = pyinotify.WatchManager()
-    handler = NginxConfigReloader(logger=logger, no_magento_config=no_magento_config, no_custom_config=no_custom_config, dir_to_watch=dir_to_watch)
-    notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
+    notifier = pyinotify.Notifier(wm)
+
+    nginx_config_changed_handler = NginxConfigReloader(
+        logger=logger,
+        no_magento_config=no_magento_config,
+        no_custom_config=no_custom_config,
+        dir_to_watch=dir_to_watch,
+    )
+
+    class SymlinkChangedHandler(pyinotify.ProcessEvent):
+        def process_IN_DELETE(self, event):
+            if event.pathname == dir_to_watch:
+                raise ListenTargetTerminated('watched directory was deleted')
 
     while True:
         while not os.path.exists(dir_to_watch):
             logger.warning("Configuration dir %s not found, waiting..." % dir_to_watch)
             time.sleep(5)
 
-        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS)
+        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler)
+        wm.watch_transient_file(dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler)
 
         # Install initial configuration
-        handler.apply_new_config()
+        nginx_config_changed_handler.apply_new_config()
 
         try:
             logger.info("Listening for changes to %s" % dir_to_watch)
