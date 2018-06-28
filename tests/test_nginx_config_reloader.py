@@ -13,6 +13,9 @@ class TestConfigReloader(TestCase):
     def setUp(self):
         self.get_pid = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.get_nginx_pid')
         self.get_pid.return_value = 42
+        self.fix_custom_config_dir_permissions = self.set_up_patch(
+            'nginx_config_reloader.NginxConfigReloader.fix_custom_config_dir_permissions'
+        )
 
         self.source = mkdtemp()
         self.dest = mkdtemp()
@@ -256,6 +259,14 @@ class TestConfigReloader(TestCase):
 
         self.assertTrue(tm.install_new_custom_config_dir.called)
 
+    def test_that_apply_new_config_fixes_custom_config_dir_permissions_by_default(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+
+        self.fix_custom_config_dir_permissions.assert_called_once_with()
+
     def test_that_apply_new_config_does_not_install_magento_config_if_specified(self):
         self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_magento_config')
 
@@ -271,6 +282,14 @@ class TestConfigReloader(TestCase):
         tm.apply_new_config()
 
         self.assertFalse(tm.install_new_custom_config_dir.called)
+
+    def test_that_apply_new_config_does_not_fix_custom_config_dir_permissions_if_specified(self):
+        self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+
+        tm = self._get_nginx_config_reloader_instance(no_custom_config=True)
+        tm.apply_new_config()
+
+        self.assertFalse(self.fix_custom_config_dir_permissions.called)
 
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), 'some error')

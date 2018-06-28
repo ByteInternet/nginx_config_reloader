@@ -16,6 +16,8 @@ DIR_TO_WATCH = '/data/web/nginx'
 MAIN_CONFIG_DIR = '/etc/nginx'
 CUSTOM_CONFIG_DIR = MAIN_CONFIG_DIR + '/app'
 BACKUP_CONFIG_DIR = MAIN_CONFIG_DIR + '/app_bak'
+UNPRIVILEGED_GID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
+UNPRIVILEGED_UID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
 
 MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
 MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
@@ -180,6 +182,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
         if not self.no_custom_config:
             try:
+                self.fix_custom_config_dir_permissions()
                 self.install_new_custom_config_dir()
             except OSError:
                 self.logger.error("Installation of custom config failed")
@@ -201,6 +204,16 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
         self.reload_nginx()
         return True
+
+    def fix_custom_config_dir_permissions(self):
+        try:
+            subprocess.check_output(
+                ['find', self.dir_to_watch, '-type', 'd', '-exec', 'chmod', '0755', '{}', ';'],
+                preexec_fn=as_unprivileged_user,
+                stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError:
+            self.logger.info("Failed fixing permissions on watched directory")
 
     def install_new_custom_config_dir(self):
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
@@ -293,6 +306,11 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
             logger.critical(err)
         except ListenTargetTerminated:
             logger.warning("Configuration dir lost, waiting for it to reappear")
+
+
+def as_unprivileged_user():
+    os.setgid(UNPRIVILEGED_GID)
+    os.setuid(UNPRIVILEGED_UID)
 
 
 def parse_nginx_config_reloader_arguments():
