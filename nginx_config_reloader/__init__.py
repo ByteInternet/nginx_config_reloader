@@ -180,6 +180,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
         if not self.no_custom_config:
             try:
+                self.fix_custom_config_dir_permissions()
                 self.install_new_custom_config_dir()
             except OSError:
                 self.logger.error("Installation of custom config failed")
@@ -201,6 +202,15 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
         self.reload_nginx()
         return True
+
+    def fix_custom_config_dir_permissions(self):
+        try:
+            subprocess.check_output(
+                ['find', self.dir_to_watch, '-type', 'd', '-exec', 'chmod', '0755', '{}', ';'],
+                stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError:
+            self.logger.info("Failed fixing permissions on watched directory")
 
     def install_new_custom_config_dir(self):
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
