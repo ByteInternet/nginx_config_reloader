@@ -1,6 +1,6 @@
 import subprocess
 
-from nginx_config_reloader import NginxConfigReloader
+from nginx_config_reloader import NginxConfigReloader, as_unprivileged_user
 from tests.testcase import TestCase
 
 
@@ -21,6 +21,7 @@ class TestFixCustomConfigDirPermissions(TestCase):
 
         self.check_output.assert_called_once_with(
             ['find', self.tm.dir_to_watch, '-type', 'd', '-exec', 'chmod', '0755', '{}', ';'],
+            preexec_fn=as_unprivileged_user,
             stderr=subprocess.STDOUT
         )
 
