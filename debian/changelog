@@ -1,3 +1,10 @@
+nginx-config-reloader (20180628.161335) xenial; urgency=medium
+
+  * fix permissions custom config dir
+  * drop to nonprivileged user to perform chmod
+
+ -- Rick van de Loo <vdloo@workstation4>  Thu, 28 Jun 2018 16:13:39 +0200
+
 nginx-config-reloader (20180221.170426) xenial; urgency=medium
 
   [ Andreas Lutro ]
