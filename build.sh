@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-ARCH="amd64"
-DIST="xenial"
+ARCH="${ARCH:-amd64}"
+DIST="${DIST:-xenial}"
 BUILDAREA="${BUILDAREA:-/tmp/nginx-config-reloader-build}"
 BUILDPATH="${BUILDAREA}-${DIST}"
 BRANCH="master"
