@@ -61,6 +61,7 @@ FORBIDDEN_CONFIG_REGEX = \
          "or in the main nginx config directory. "
          "See the NGINX dos and don'ts in this article: "
          "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"),
+        ("init_by_lua", "Usage of Lua initialization is not allowed.\n"),
     ]
 
 logger = logging.getLogger(__name__)

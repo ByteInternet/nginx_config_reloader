@@ -119,4 +119,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
                 pipes.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]), shell=True
             )
 
+    def test_forbidden_config_init_by_lua_regex_matches_target_directives(self):
+        TEST_CASES = ['init_by_lua', 'init_by_lua_block', 'init_by_lua_file']
+
+        for test in TEST_CASES:
+            with self.assertRaises(CalledProcessError):
+                check_output("[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
+                    pipes.quote(test), FORBIDDEN_CONFIG_REGEX[3][0]), shell=True
+                )
 
