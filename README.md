@@ -38,18 +38,17 @@ pip install -r requirements.txt
 
 ## Building debian packages
 
+To create a package from "master" branch (for production) run the "build.sh" script
+
 ```sh
-# Generate version string
-VERSION=$(date "+%Y%m%d.%H%M%S")
+./build.sh
+```
 
-# Generate and commit changelog
-gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch master --release --commit
+This would create a release tag as well.
 
-# Tag current version
-git tag $VERSION
-git push
-git push --tags
+If you'd like to create a Debian package of a development branch (without tagging, etc.)
+you can use "_build_local.sh" script
 
-# Build package
-gbp buildpackage --git-pbuilder --git-dist=precise --git-arch=amd64 --git-debian-branch=master
+```sh
+./_build_local.sh
 ```
