@@ -1,3 +1,14 @@
+nginx-config-reloader (20181211.152109) xenial; urgency=medium
+
+  * Add _build_local to build Debian package in development env
+  * Add build.sh script to build the Debian package easier
+  * Update README.md with build instructions using the build scripts
+  * Allow setting DIST/ARCH via env variables in build scripts
+  * Disallow using init_by_lua* directives
+  * Update version in setup.py to 20181211.152109
+
+ -- Farzad Ghanei <farzad@farzad-vostro-430>  Tue, 11 Dec 2018 15:21:10 +0100
+
 nginx-config-reloader (20180628.161335) xenial; urgency=medium
 
   * fix permissions custom config dir
