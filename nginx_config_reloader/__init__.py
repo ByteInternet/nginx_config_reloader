@@ -31,6 +31,7 @@ WATCH_IGNORE_FILES = (
     # glob patterns
     '.*',
     '*~',
+    '*.save',
     ERROR_FILE
 )
 SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
