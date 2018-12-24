@@ -1,3 +1,14 @@
+nginx-config-reloader (20181224.111316) xenial; urgency=medium
+
+  [ Timon de Groot ]
+  * Add *.save to WATCH_IGNORE_FILES
+
+  [ Rick van de Loo ]
+  * Update version in setup.py to 20181224.111310
+  * Update version in setup.py to 20181224.111316
+
+ -- Rick van de Loo <vdloo@workstation4>  Mon, 24 Dec 2018 11:13:16 +0100
+
 nginx-config-reloader (20181211.152109) xenial; urgency=medium
 
   * Add _build_local to build Debian package in development env
