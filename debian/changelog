@@ -1,3 +1,15 @@
+nginx-config-reloader (20190201.143828) xenial; urgency=medium
+
+  [ Farzad Ghanei ]
+  * Exclude ERROR_FILE when checking for forbidden config pattenrs
+  * config reloader always removes error file before installing configs
+  * Git ignore ctags file
+
+  [ Rick van de Loo ]
+  * Update version in setup.py to 20190201.143828
+
+ -- Rick van de Loo <vdloo@workstation4>  Fri, 01 Feb 2019 14:38:29 +0100
+
 nginx-config-reloader (20181224.111316) xenial; urgency=medium
 
   [ Timon de Groot ]
