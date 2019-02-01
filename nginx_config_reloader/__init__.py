@@ -159,9 +159,17 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if os.path.isdir(self.dir_to_watch):
             for rules in FORBIDDEN_CONFIG_REGEX:
                 try:
+                    # error file may contain messages that match a forbidden config pattern
+                    # then validation could fail while the actual config is correct.
+                    # we'll exclude the error file from searching for patterns,
+                    # NOTE: exclusion of error_file requires to ensure the
+                    # file is removed before moving it to nginx conf dir
+                    # @TODO: use Python to search for forbidden configs instead
+                    # of spawning external procs. Will have better testing
+                    # and even may consume less system resources
                     check_external_resources = \
-                        "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                            rules[0], self.dir_to_watch
+                        "[ $(grep -r --exclude={} -P '{}' '{}' | wc -l) -lt 1 ]".format(
+                            ERROR_FILE, rules[0], self.dir_to_watch
                         )
                     subprocess.check_output(check_external_resources, shell=True)
                 except subprocess.CalledProcessError:
@@ -170,6 +178,18 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                     self.write_error_file(error)
                     return True
             return False
+
+    def remove_error_file(self):
+        """Try removing the error file. Return True on success or False on errors
+        :rtype: bool
+        """
+        removed = False
+        try:
+            os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
+            removed = True
+        except OSError:
+            pass
+        return removed
 
     def apply_new_config(self):
         if self.check_no_forbidden_config_directives_are_present():
@@ -199,10 +219,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.write_error_file(e.output)
             return False
         else:
-            try:
-                os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
-            except OSError:
-                pass
+            self.remove_error_file()
 
         self.reload_nginx()
         return True
@@ -218,6 +235,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Failed fixing permissions on watched directory")
 
     def install_new_custom_config_dir(self):
+        self.remove_error_file()
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)

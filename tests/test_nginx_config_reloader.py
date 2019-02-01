@@ -34,6 +34,7 @@ class TestConfigReloader(TestCase):
 
         self.test_config = self.set_up_patch('subprocess.check_output')
         self.kill = self.set_up_patch('os.kill')
+        self.error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -157,7 +158,7 @@ class TestConfigReloader(TestCase):
             tm.apply_new_config()
 
             error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
-            mock_unlink.assert_called_once_with(error_file)
+            mock_unlink.assert_has_calls([mock.call(error_file), mock.call(error_file)])
 
     def test_that_apply_new_config_restores_files_if_config_check_fails(self):
         self._write_file(self._source('conffile'), 'failing config')
@@ -337,6 +338,34 @@ class TestConfigReloader(TestCase):
         tm.handle_event(Event('.config.swp'))
 
         self.assertEqual(len(self.kill.mock_calls), 0)
+
+    def test_remove_error_file_unlinks_the_error_file(self):
+        mock_os = self.set_up_patch('nginx_config_reloader.os')
+        mock_os.path.join.return_value = self.error_file
+        tm = self._get_nginx_config_reloader_instance()
+        self.assertTrue(tm.remove_error_file())
+        mock_os.unlink.assert_called_once_with(self.error_file)
+        self.assertTrue(mock_os.path.join.called)
+
+    def test_remove_error_file_returns_false_on_errors(self):
+        mock_os = self.set_up_patch('nginx_config_reloader.os')
+        mock_os.unlink.side_effect = OSError('mocked error')
+        tm = self._get_nginx_config_reloader_instance()
+        self.assertFalse(tm.remove_error_file())
+
+    def test_that_install_new_custom_config_dir_always_removes_the_error_file_before_copying_configs(self):
+        mock_remove_error_file = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.remove_error_file')
+        # ensure all IO operations would fail other than error_file removal
+        mock_shutil = self.set_up_patch('nginx_config_reloader.shutil')
+        mock_shutil.rmtree.side_effect = RuntimeError('mock error')
+        mock_shutil.move.side_effect = RuntimeError('mock error')
+        mock_shutil.copytree.side_effect = RuntimeError('mock error')
+
+        tm = self._get_nginx_config_reloader_instance()
+        with self.assertRaises(RuntimeError):
+            tm.install_new_custom_config_dir()
+
+        self.assertTrue(mock_remove_error_file.called)
 
     def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
         return nginx_config_reloader.NginxConfigReloader(
