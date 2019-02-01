@@ -159,9 +159,17 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if os.path.isdir(self.dir_to_watch):
             for rules in FORBIDDEN_CONFIG_REGEX:
                 try:
+                    # error file may contain messages that match a forbidden config pattern
+                    # then validation could fail while the actual config is correct.
+                    # we'll exclude the error file from searching for patterns,
+                    # NOTE: exclusion of error_file requires to ensure the
+                    # file is removed before moving it to nginx conf dir
+                    # @TODO: use Python to search for forbidden configs instead
+                    # of spawning external procs. Will have better testing
+                    # and even may consume less system resources
                     check_external_resources = \
-                        "[ $(grep -r -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                            rules[0], self.dir_to_watch
+                        "[ $(grep -r --exclude={} -P '{}' '{}' | wc -l) -lt 1 ]".format(
+                            ERROR_FILE, rules[0], self.dir_to_watch
                         )
                     subprocess.check_output(check_external_resources, shell=True)
                 except subprocess.CalledProcessError:
