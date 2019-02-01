@@ -59,3 +59,7 @@ debian/debhelper-*
 debian/nginx-config-reloader.*.debhelper
 debian/nginx-config-reloader.substvars
 debian/nginx-config-reloader/
+
+# ctags
+tags
+ctags
