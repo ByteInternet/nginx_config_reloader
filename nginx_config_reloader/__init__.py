@@ -179,6 +179,18 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                     return True
             return False
 
+    def remove_error_file(self):
+        """Try removing the error file. Return True on success or False on errors
+        :rtype: bool
+        """
+        removed = False
+        try:
+            os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
+            removed = True
+        except OSError:
+            pass
+        return removed
+
     def apply_new_config(self):
         if self.check_no_forbidden_config_directives_are_present():
             return False
@@ -207,10 +219,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.write_error_file(e.output)
             return False
         else:
-            try:
-                os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
-            except OSError:
-                pass
+            self.remove_error_file()
 
         self.reload_nginx()
         return True
@@ -226,6 +235,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Failed fixing permissions on watched directory")
 
     def install_new_custom_config_dir(self):
+        self.remove_error_file()
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
