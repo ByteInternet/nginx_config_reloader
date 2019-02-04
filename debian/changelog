@@ -1,3 +1,9 @@
+nginx-config-reloader (20190204.093745) xenial; urgency=medium
+
+  * Update version in setup.py to 20190204.093745
+
+ -- Farzad Ghanei <farzad@farzad-vostro-430>  Mon, 04 Feb 2019 09:37:46 +0100
+
 nginx-config-reloader (20190201.143828) xenial; urgency=medium
 
   [ Farzad Ghanei ]
