@@ -1,3 +1,16 @@
+nginx-config-reloader (20190716.162928) xenial; urgency=medium
+
+  [ Alexander Grooff ]
+  * Watch the directory recursively
+  * Add option to toggle recursive watch
+  * Default behaviour is not recursive watch
+
+  [ Rick van de Loo ]
+  * Update version in setup.py to 20190716.162921
+  * Update version in setup.py to 20190716.162928
+
+ -- Rick van de Loo <vdloo@workstation4>  Tue, 16 Jul 2019 16:29:29 +0200
+
 nginx-config-reloader (20190204.093745) xenial; urgency=medium
 
   * Update version in setup.py to 20190204.093745
