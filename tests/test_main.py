@@ -15,7 +15,7 @@ class TestMain(TestCase):
         self.parse_nginx_config_reloader_arguments.return_value = Mock(
             monitor=False, allow_includes=False,
             nomagentoconfig=False, nocustomconfig=False, watchdir=self.source,
-            norecursivewatch=False
+            recursivewatch=False
         )
         self.get_logger = self.set_up_context_manager_patch(
             'nginx_config_reloader.get_logger'
@@ -48,7 +48,7 @@ class TestMain(TestCase):
             no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
-            no_recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.norecursivewatch
+            recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch
         )
         self.reloader.return_value.apply_new_config()
 
@@ -72,7 +72,7 @@ class TestMain(TestCase):
             no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
-            no_recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.norecursivewatch
+            recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch
         )
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
@@ -86,7 +86,7 @@ class TestMain(TestCase):
             no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
-            no_recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.norecursivewatch
+            recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch
         )
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
