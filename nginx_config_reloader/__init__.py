@@ -313,7 +313,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
             logger.warning("Configuration dir %s not found, waiting..." % dir_to_watch)
             time.sleep(5)
 
-        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler)
+        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler, rec=True)
         wm.watch_transient_file(dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler)
 
         # Install initial configuration
