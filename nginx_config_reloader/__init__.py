@@ -345,7 +345,7 @@ def parse_nginx_config_reloader_arguments():
         '--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False
     )
     parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
-    parser.add_argument('--recursivewatch', help='Enable recursive watching of subdirectories', default=False)
+    parser.add_argument('--recursivewatch', action='store_true', help='Enable recursive watching of subdirectories', default=False)
     return parser.parse_args()
 
 
@@ -378,8 +378,7 @@ def main():
             logger=log,
             no_magento_config=args.nomagentoconfig,
             no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir,
-            recursive_watch=args.recursivewatch
+            dir_to_watch=args.watchdir
         ).apply_new_config()
         return 0
 

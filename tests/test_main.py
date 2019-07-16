@@ -47,8 +47,7 @@ class TestMain(TestCase):
             logger=self.get_logger.return_value,
             no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
-            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
-            recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch
+            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir
         )
         self.reloader.return_value.apply_new_config()
 
