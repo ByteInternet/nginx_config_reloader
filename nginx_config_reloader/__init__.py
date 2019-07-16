@@ -276,7 +276,8 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
-def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH):
+def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
+              no_recursive_watch=False):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -289,6 +290,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
     :param bool no_magento_config: True if we should not install Magento configuration
     :param bool no_custom_config: True if we should not copy custom configuration
     :param str dir_to_watch: The directory to watch
+    :param str no_recursive_watch: True if we should not watch the dir recursively
     :return None:
     """
     dir_to_watch = os.path.abspath(dir_to_watch)
@@ -313,7 +315,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
             logger.warning("Configuration dir %s not found, waiting..." % dir_to_watch)
             time.sleep(5)
 
-        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler, rec=True)
+        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler, rec=not no_recursive_watch)
         wm.watch_transient_file(dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler)
 
         # Install initial configuration
@@ -343,6 +345,7 @@ def parse_nginx_config_reloader_arguments():
         '--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False
     )
     parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
+    parser.add_argument('--norecursivewatch', help='Disable recursive watching of subdirectories', default=False)
     return parser.parse_args()
 
 
@@ -364,7 +367,8 @@ def main():
             logger=log,
             no_magento_config=args.nomagentoconfig,
             no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir
+            dir_to_watch=args.watchdir,
+            no_recursive_watch=args.norecursivewatch
         )
         # should never return
         return 1
@@ -374,7 +378,8 @@ def main():
             logger=log,
             no_magento_config=args.nomagentoconfig,
             no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir
+            dir_to_watch=args.watchdir,
+            no_recursive_watch=args.norecursivewatch
         ).apply_new_config()
         return 0
 

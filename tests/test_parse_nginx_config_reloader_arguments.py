@@ -27,7 +27,9 @@ class TestParseNginxConfigReloaderArguments(TestCase):
             call('--nocustomconfig', action='store_true',
                  help='Disable copying custom configuration', default=False),
             call('--watchdir', '-w',
-                help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH)
+                help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH),
+            call('--norecursivewatch',
+                 help='Disable recursive watching of subdirectories', default=False)
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls
