@@ -28,7 +28,7 @@ class TestParseNginxConfigReloaderArguments(TestCase):
                  help='Disable copying custom configuration', default=False),
             call('--watchdir', '-w',
                 help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH),
-            call('--recursivewatch',
+            call('--recursivewatch', action='store_true',
                  help='Enable recursive watching of subdirectories', default=False)
         ]
         self.assertEqual(
