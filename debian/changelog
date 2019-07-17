@@ -1,3 +1,13 @@
+nginx-config-reloader (20190717.144256) xenial; urgency=medium
+
+  [ Alexander Grooff ]
+  * Process event on dir created
+  * Update version in setup.py to 20190717.144256
+
+  [ alex ]
+
+ -- alex <alex@alex-pc>  Wed, 17 Jul 2019 14:42:57 +0200
+
 nginx-config-reloader (20190716.180209) xenial; urgency=medium
 
   [ Alexander Grooff ]
