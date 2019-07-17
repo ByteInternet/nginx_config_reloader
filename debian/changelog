@@ -1,3 +1,13 @@
+nginx-config-reloader (20190717.144331) xenial; urgency=medium
+
+  [ Alexander Grooff ]
+  * Process event on dir created
+
+  [ Rick van de Loo ]
+  * Update version in setup.py to 20190717.144331
+
+ -- Rick van de Loo <vdloo@workstation4>  Wed, 17 Jul 2019 14:43:32 +0200
+
 nginx-config-reloader (20190716.180209) xenial; urgency=medium
 
   [ Alexander Grooff ]
