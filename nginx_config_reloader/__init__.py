@@ -108,6 +108,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         """Triggered by inotify when a file is moved from or to the dir"""
         self.handle_event(event)
 
+    def process_IN_CREATE(self, event):
+        """Triggered by inotify when a dir is created in the watch dir"""
+        if event.dir:
+            self.handle_event(event)
+
     def process_IN_CLOSE_WRITE(self, event):
         """Triggered by inotify when a file is written in the dir"""
         self.handle_event(event)

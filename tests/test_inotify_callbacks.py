@@ -39,6 +39,12 @@ class TestInotifyCallbacks(unittest.TestCase):
 
         self.assertEqual(len(self.handle_event.mock_calls), 1)
 
+    def test_that_handle_event_is_called_when_new_dir_is_created(self):
+        mkdtemp(dir=self.dir)
+        self._process_events()
+
+        self.assertEqual(len(self.handle_event.mock_calls), 1)
+
     def test_that_handle_event_is_called_when_a_file_is_removed(self):
         os.remove(os.path.join(self.dir, 'existing_file'))
 
@@ -85,3 +91,25 @@ class TestInotifyCallbacks(unittest.TestCase):
 
         with self.assertRaises(nginx_config_reloader.ListenTargetTerminated):
             self._process_events()
+
+
+class TestInotifyRecursiveCallbacks(TestInotifyCallbacks):
+    # Run all callback tests on a subdir
+    def setUp(self):
+        patcher = mock.patch('nginx_config_reloader.NginxConfigReloader.handle_event')
+        self.addCleanup(patcher.stop)
+        self.handle_event = patcher.start()
+
+        self.rootdir = mkdtemp()
+        self.dir = mkdtemp(dir=self.rootdir)
+        with open(os.path.join(self.dir, 'existing_file'), 'w') as f:
+            f.write('blablabla')
+
+        wm = pyinotify.WatchManager()
+        handler = nginx_config_reloader.NginxConfigReloader()
+        self.notifier = pyinotify.Notifier(wm, default_proc_fun=handler)
+        wm.add_watch(self.rootdir, pyinotify.ALL_EVENTS, rec=True)
+
+    def tearDown(self):
+        self.notifier.stop()
+        shutil.rmtree(self.rootdir, ignore_errors=True)
