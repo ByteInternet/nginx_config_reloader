@@ -1,3 +1,11 @@
+nginx-config-reloader (20190731.120623) xenial; urgency=medium
+
+  [ Alexander Grooff ]
+  * Automatically add watch on subdirs
+  * Update version in setup.py to 20190731.120623
+
+ -- alex <alex@alex-pc>  Wed, 31 Jul 2019 12:06:24 +0200
+
 nginx-config-reloader (20190717.144331) xenial; urgency=medium
 
   [ Alexander Grooff ]
