@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
 import argparse
 import fnmatch
 import pyinotify
@@ -127,7 +128,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
-            self.logger.info("%s detected on %s" % (event.maskname, event.name))
+            self.logger.info("{} detected on {}".format(event.maskname, event.name))
             self.apply_new_config()
 
     def install_magento_config(self):
@@ -317,7 +318,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
 
     while True:
         while not os.path.exists(dir_to_watch):
-            logger.warning("Configuration dir %s not found, waiting..." % dir_to_watch)
+            logger.warning("Configuration dir {} not found, waiting...".format(dir_to_watch))
             time.sleep(5)
 
         wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler,
@@ -328,7 +329,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
         nginx_config_changed_handler.apply_new_config()
 
         try:
-            logger.info("Listening for changes to %s" % dir_to_watch)
+            logger.info("Listening for changes to {}".format(dir_to_watch))
             notifier.loop()
         except pyinotify.NotifierError as err:
             logger.critical(err)
@@ -387,6 +388,7 @@ def main():
             dir_to_watch=args.watchdir
         ).apply_new_config()
         return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())
