@@ -4,7 +4,7 @@ setup(
     name='nginx_config_reloader',
     version="20191126.145143",
     packages=find_packages(exclude=['test*']),
-    url='',
+    url='https://github.com/ByteInternet/nginx_config_reloader',
     license='',
     author='Willem de Groot',
     author_email='willem@byte.nl',
