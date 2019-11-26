@@ -1,5 +1,6 @@
 import unittest
-from mock import patch, Mock
+import sys
+from mock import patch, Mock, mock_open
 
 
 class TestCase(unittest.TestCase):
@@ -13,3 +14,11 @@ class TestCase(unittest.TestCase):
         patcher.return_value.__exit__ = lambda a, b, c, d: None
         patcher.return_value.__enter__ = lambda x: None
         return patcher
+
+    def set_up_mock_open(self, read_value=""):
+        py_version = sys.version_info
+        python2 = py_version < (3, 0)
+        if python2:
+            return self.set_up_patch('__builtin__.open', mock_open(read_data=read_value))
+        else:
+            return self.set_up_patch("builtins.open", mock_open(read_data=read_value))
