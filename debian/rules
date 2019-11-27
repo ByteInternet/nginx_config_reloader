@@ -1,5 +1,11 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@ --with python2 --with=systemd
+	dh $@ --with python3 --with systemd --buildsystem=pybuild
 
+override_dh_auto_test:
+	# skipping tests. we don't want to test in the build env,
+	# we do this alkready in jenkins
+
+override_dh_install:
+	dh_install

@@ -63,3 +63,6 @@ debian/nginx-config-reloader/
 # ctags
 tags
 ctags
+
+# vim
+.swp

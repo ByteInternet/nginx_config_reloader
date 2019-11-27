@@ -77,7 +77,8 @@ class TestConfigReloader(TestCase):
         self.assertEqual(contents, 'magento1 config')
 
     def test_that_apply_new_config_does_not_install_configs_if_magento1_config_doesnt_exist(self):
-        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch(
+            'nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         os.unlink(self.mag1_conf)
 
@@ -93,7 +94,8 @@ class TestConfigReloader(TestCase):
         mock_symlink = self.set_up_patch('os.symlink')
         mock_symlink.side_effect = OSError
 
-        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch(
+            'nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         tm = self._get_nginx_config_reloader_instance()
         ret = tm.apply_new_config()
@@ -106,7 +108,8 @@ class TestConfigReloader(TestCase):
         self.assertEqual(contents, 'magento1 config')
 
     def test_that_apply_new_config_does_not_install_configs_if_magento2_config_doesnt_exist(self):
-        mock_install_custom = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
+        mock_install_custom = self.set_up_patch(
+            'nginx_config_reloader.NginxConfigReloader.install_new_custom_config_dir')
 
         os.unlink(self.mag2_conf)
 
