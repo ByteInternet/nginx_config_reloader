@@ -1,3 +1,23 @@
+nginx-config-reloader (20191127.113351) xenial; urgency=medium
+
+  [ Owen Ashby ]
+  * started porting to python3
+  * fixed failing test and pep8 violations
+  * changed python version to 3.5
+
+  [ Roas ]
+  * Unittests pass on py2 and py3
+  * Update version in setup.py to 20191126.145143
+  * Change build config to python3
+  * Run tests for both py2 and py3
+  * Try to specify buildsystem
+  * Changes debian rules
+
+  [ Rick van de Loo ]
+  * Update version in setup.py to 20191127.113351
+
+ -- Rick van de Loo <vdloo@workstation4>  Wed, 27 Nov 2019 11:33:53 +0100
+
 nginx-config-reloader (20190731.120623) xenial; urgency=medium
 
   [ Alexander Grooff ]
