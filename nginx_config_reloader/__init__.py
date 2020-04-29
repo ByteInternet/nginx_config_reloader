@@ -274,7 +274,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             return None
 
     def write_error_file(self, error):
-        with open(os.path.join(self.dir_to_watch, ERROR_FILE), 'w') as f:
+        with open(os.path.join(self.dir_to_watch, ERROR_FILE), 'wb') as f:
             f.write(error)
 
 
