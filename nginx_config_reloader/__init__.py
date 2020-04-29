@@ -181,7 +181,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                 except subprocess.CalledProcessError:
                     error = "Unable to load config: {}".format(rules[1])
                     self.logger.error(error)
-                    self.write_error_file(error)
+                    self.write_error_file(error.encode())
                     return True
             return False
 
@@ -222,7 +222,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Config check failed")
             if not self.no_custom_config:
                 self.restore_old_custom_config_dir()
-            self.write_error_file(e.output)
+            self.write_error_file(e.output.encode())
             return False
         else:
             self.remove_error_file()
