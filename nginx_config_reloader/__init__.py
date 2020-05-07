@@ -222,7 +222,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Config check failed")
             if not self.no_custom_config:
                 self.restore_old_custom_config_dir()
-            self.write_error_file(e.output.encode())
+
+            if sys.version_info < (3, 0):
+                self.write_error_file(e.output)
+            else:
+                self.write_error_file(e.output.encode())
+
             return False
         else:
             self.remove_error_file()
