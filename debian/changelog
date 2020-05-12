@@ -1,4 +1,4 @@
-nginx-config-reloader (20200319.154431) UNRELEASED; urgency=medium
+nginx-config-reloader (20200512.132546) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -6,7 +6,21 @@ nginx-config-reloader (20200319.154431) UNRELEASED; urgency=medium
   [ Sander Roosingh ]
   * Add mark-release.sh
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 19 Mar 2020 15:44:32 +0000
+  [ Timon de Groot ]
+  * Fix error caused by  writing bytes (instead of str) to error file
+  * Add str to byte conversion
+
+  [ Rick van de Loo ]
+  * fix mark release detect change
+
+  [ Timon de Groot ]
+  * Add python 2.7 compatibility check
+  * Add tox.ini
+  * Reverse the unicode wrapping
+
+  [ Hypernode team ]
+
+ -- Timon de Groot <timon@mooore.nl>  Tue, 12 May 2020 13:25:48 +0200
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
