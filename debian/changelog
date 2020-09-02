@@ -1,4 +1,4 @@
-nginx-config-reloader (20200512.132546) UNRELEASED; urgency=medium
+nginx-config-reloader (20200902.145723) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -20,7 +20,10 @@ nginx-config-reloader (20200512.132546) UNRELEASED; urgency=medium
 
   [ Hypernode team ]
 
- -- Timon de Groot <timon@mooore.nl>  Tue, 12 May 2020 13:25:48 +0200
+  [ Erik Lamers ]
+  * Allow syslog option in access/error_log config
+
+ -- Hypernode team <hypernode@byte.nl>  Wed, 02 Sep 2020 14:57:24 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
