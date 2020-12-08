@@ -83,3 +83,16 @@ class TestIntegration(TestCase):
         self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink')))
         self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir')))
         self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir/recursive_symlink')))
+
+    def test_permissions_are_masked_for_file(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o777)
+        NginxConfigReloader(dir_to_watch=self.source).apply_new_config()
+        self.assertTrue(str(oct(os.stat(os.path.join(self.cust_conf_dir, 'server.test.cnf')).st_mode)).endswith('0644'))
+
+    def test_permissions_are_masked_for_directory(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.chmod(os.path.join(self.source, 'new_dir'), 0o777)
+        NginxConfigReloader(dir_to_watch=self.source).apply_new_config()
+        self.assertTrue(str(oct(os.stat(os.path.join(self.cust_conf_dir, 'new_dir')).st_mode)).endswith('0755'))
