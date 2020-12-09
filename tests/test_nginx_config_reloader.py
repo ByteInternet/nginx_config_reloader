@@ -370,6 +370,82 @@ class TestConfigReloader(TestCase):
 
         self.assertTrue(mock_remove_error_file.called)
 
+    def test_recursive_symlink_is_recursively_copied(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink')))
+        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir')))
+        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir/recursive_symlink')))
+
+    def test_reloader_doesnt_crash_if_source_dir_is_empty(self):
+        shutil.rmtree(self.source, ignore_errors=True)
+        os.mkdir(self.source)
+
+        # Doesn't crash
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+
+    def test_files_are_copied(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(os.path.join(self.dest, 'server.test.cnf')))
+        with open(os.path.join(self.dest, 'server.test.cnf')) as fp:
+            self.assertIn('test', fp.read())
+
+    def test_new_dir_is_placed(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(os.path.join(self.dest, 'new_dir')))
+
+    def test_dotfiles_are_ignored(self):
+        os.mkdir(os.path.join(self.source, '.git'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.exists(os.path.join(self.dest, '.git')))
+
+    def test_symlink_to_file_is_copied_to_file(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.symlink(
+            dst=os.path.join(self.source, 'symlink'),
+            src=os.path.join(self.source, 'server.test.cnf')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.islink(os.path.join(self.dest, 'symlink')))
+        self.assertTrue(os.path.isfile(os.path.join(self.dest, 'symlink')))
+
+    def test_symlink_to_dir_is_copied_to_dir(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.symlink(
+            dst=os.path.join(self.source, 'symlink'),
+            src=os.path.join(self.source, 'new_dir')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.islink(os.path.join(self.dest, 'symlink')))
+        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'symlink')))
+
+    def test_permissions_are_masked_for_file(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.source, 'server.test.cnf')).st_mode))[-4:], '0644')
+
+    def test_permissions_are_masked_for_directory(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.chmod(os.path.join(self.source, 'new_dir'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.source, 'new_dir')).st_mode))[-4:], '0755')
+
     def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
         return nginx_config_reloader.NginxConfigReloader(
             no_magento_config=no_magento_config,
