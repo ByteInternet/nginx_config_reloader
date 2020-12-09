@@ -395,6 +395,18 @@ class TestConfigReloader(TestCase):
         tm.apply_new_config()
         self.assertFalse(os.path.exists(self._dest('new_dir')))
 
+    def test_rsync_error_is_placed_in_error_file(self):
+        check_call = self.set_up_patch('subprocess.check_call')
+        check_call.side_effect = OSError('Rsync error')
+
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(self.error_file))
+        with open(self.error_file) as fp:
+            self.assertIn("Rsync error", fp.read())
+
     def test_reloader_doesnt_crash_if_source_dir_is_empty(self):
         shutil.rmtree(self.source, ignore_errors=True)
         os.mkdir(self.source)

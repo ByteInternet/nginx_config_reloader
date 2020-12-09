@@ -212,9 +212,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             try:
                 self.fix_custom_config_dir_permissions()
                 self.install_new_custom_config_dir()
-            except (OSError, subprocess.CalledProcessError):
+            except (OSError, subprocess.CalledProcessError) as e:
+                error_output = "{}\n\n{}".format(str(e), getattr(e, 'output', ""))
                 self.logger.error("Installation of custom config failed")
                 self.restore_old_custom_config_dir()
+                self.write_error_file(error_output)
                 return False
 
         try:
