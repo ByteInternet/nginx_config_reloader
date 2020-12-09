@@ -236,9 +236,9 @@ class TestConfigReloader(TestCase):
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
-    def test_that_apply_new_config_doesnt_fail_on_failing_copy(self):
-        copytree = self.set_up_patch('shutil.copytree')
-        copytree.side_effect = OSError('Directory doesnt exist')
+    def test_that_apply_new_config_doesnt_fail_on_failed_rsync(self):
+        check_call = self.set_up_patch('subprocess.check_call')
+        check_call.side_effect = OSError('Rsync error')
 
         tm = self._get_nginx_config_reloader_instance()
         result = tm.apply_new_config()
@@ -370,14 +370,30 @@ class TestConfigReloader(TestCase):
 
         self.assertTrue(mock_remove_error_file.called)
 
-    def test_recursive_symlink_is_recursively_copied(self):
+    def test_recursive_symlink_is_not_copied(self):
         os.mkdir(os.path.join(self.source, 'new_dir'))
         os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
-        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink')))
-        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir')))
-        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'new_dir/recursive_symlink/new_dir/recursive_symlink')))
+        self.assertFalse(os.path.exists(self._dest('new_dir/recursive_symlink')))
+
+    def test_backup_is_placed_if_custom_config_fails_to_be_placed(self):
+        check_call = self.set_up_patch('subprocess.check_call')
+        check_call.side_effect = OSError('Rsync error')
+        os.mkdir(self._dest('old_dir'))
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(self._dest('old_dir')))
+
+    def test_other_files_are_not_placed_on_rsync_error(self):
+        check_call = self.set_up_patch('subprocess.check_call')
+        check_call.side_effect = OSError('Rsync error')
+
+        os.mkdir(self._source('new_dir'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.exists(self._dest('new_dir')))
 
     def test_reloader_doesnt_crash_if_source_dir_is_empty(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -437,14 +453,23 @@ class TestConfigReloader(TestCase):
         os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o777)
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
-        self.assertEqual(str(oct(os.stat(os.path.join(self.source, 'server.test.cnf')).st_mode))[-4:], '0644')
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'server.test.cnf')).st_mode))[-4:], '0644')
 
     def test_permissions_are_masked_for_directory(self):
         os.mkdir(os.path.join(self.source, 'new_dir'))
         os.chmod(os.path.join(self.source, 'new_dir'), 0o777)
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
-        self.assertEqual(str(oct(os.stat(os.path.join(self.source, 'new_dir')).st_mode))[-4:], '0755')
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'new_dir')).st_mode))[-4:], '0755')
+
+    def test_permissions_are_masked_for_file_in_subdir(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        with open(os.path.join(self.source, 'new_dir/server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'new_dir/server.test.cnf'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'new_dir/server.test.cnf')).st_mode))[-4:], '0644')
 
     def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
         return nginx_config_reloader.NginxConfigReloader(
@@ -467,6 +492,9 @@ class TestConfigReloader(TestCase):
 
     def _dest(self, name):
         return os.path.join(self.dest, name)
+
+    def _backup(self, name):
+        return os.path.join(self.backup, name)
 
 
 class Event:

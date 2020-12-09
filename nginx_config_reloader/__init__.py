@@ -212,8 +212,9 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             try:
                 self.fix_custom_config_dir_permissions()
                 self.install_new_custom_config_dir()
-            except OSError:
+            except (OSError, subprocess.CalledProcessError):
                 self.logger.error("Installation of custom config failed")
+                self.restore_old_custom_config_dir()
                 return False
 
         try:
@@ -240,18 +241,26 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         except subprocess.CalledProcessError:
             self.logger.info("Failed fixing permissions on watched directory")
 
+    def copy_files(self, src, dest):
+        self.logger.debug("Dest before copy: {}".format(os.listdir(dest)))
+        # Adding a / at the end copies contents of the dir and not the dir itself
+        cmd = [
+            'rsync', src + '/', dest, '-ad', '--chmod="D755,F644"', '--chown', 'root:root', '--copy-links',
+            *["--exclude=\"{}\"".format(pattern) for pattern in SYNC_IGNORE_FILES],
+        ]
+        cmd = " ".join(cmd)
+        self.logger.debug("Running command: {}".format(cmd))
+        # shell=True to ensure globs are not escaped
+        subprocess.check_call(cmd, preexec_fn=as_unprivileged_user, stderr=subprocess.STDOUT, shell=True)
+        self.logger.debug("Dest after copy: {}".format(os.listdir(dest)))
+
     def install_new_custom_config_dir(self):
         self.remove_error_file()
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
-        completed = False
-        while not completed:
-            try:
-                shutil.copytree(self.dir_to_watch, CUSTOM_CONFIG_DIR, ignore=shutil.ignore_patterns(*SYNC_IGNORE_FILES))
-                completed = True
-            except shutil.Error:
-                pass  # retry
+        os.mkdir(CUSTOM_CONFIG_DIR)
+        self.copy_files(self.dir_to_watch, CUSTOM_CONFIG_DIR)
 
     def restore_old_custom_config_dir(self):
         shutil.rmtree(CUSTOM_CONFIG_DIR)
