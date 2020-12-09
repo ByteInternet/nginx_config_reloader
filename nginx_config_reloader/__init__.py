@@ -253,7 +253,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         cmd = " ".join(cmd)
         self.logger.debug("Running command: {}".format(cmd))
         # shell=True to ensure globs are not escaped
-        subprocess.check_call(cmd, preexec_fn=as_unprivileged_user, stderr=subprocess.STDOUT, shell=True)
+        subprocess.check_call(cmd, shell=True, stderr=subprocess.STDOUT)
         self.logger.debug("Dest after copy: {}".format(os.listdir(dest)))
 
     def install_new_custom_config_dir(self):
