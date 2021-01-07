@@ -1,5 +1,5 @@
 import logging
-from itertools import chain
+import os
 from subprocess import check_output, STDOUT
 
 from nginx_config_reloader.settings import SYNC_IGNORE_FILES
@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 def safe_copy_files(src, dest):
     cmd = [
         # Adding a / at the end copies contents of the dir and not the dir itself
-        'rsync', src + '/', dest,
+        # This is achieved with `os.path.join(x, '')`, which ensures a trailing slash
+        'rsync', os.path.join(src, ''), dest,
         # Delete and archive without copying over permissions, aka -da but without -p (-a equals -rlptgoD)
         '-drltgoD',
         '--chown', 'root:root',
