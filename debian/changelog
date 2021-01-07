@@ -1,4 +1,4 @@
-nginx-config-reloader (20200902.145723) UNRELEASED; urgency=medium
+nginx-config-reloader (20210107.130603) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -23,7 +23,19 @@ nginx-config-reloader (20200902.145723) UNRELEASED; urgency=medium
   [ Erik Lamers ]
   * Allow syslog option in access/error_log config
 
- -- Hypernode team <hypernode@byte.nl>  Wed, 02 Sep 2020 14:57:24 +0000
+  [ Alexander Grooff ]
+  * Add integration tests for files being placed
+  * Add permission tests
+  * Use existing integration test
+  * Copy files using rsync
+  * Place rsync error in error output file
+  * Don't run rsync as unpriv
+  * Separate settings, copy_files for easier mocking
+  * Mock function instead of check_output
+  * Python 2.7 compatibility
+  * Ensure trailing slash with os.path.join
+
+ -- Hypernode team <hypernode@byte.nl>  Thu, 07 Jan 2021 13:06:05 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
