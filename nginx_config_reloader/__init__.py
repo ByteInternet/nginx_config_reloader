@@ -12,59 +12,10 @@ import shutil
 import sys
 import time
 
-
-DIR_TO_WATCH = '/data/web/nginx'
-MAIN_CONFIG_DIR = '/etc/nginx'
-CUSTOM_CONFIG_DIR = MAIN_CONFIG_DIR + '/app'
-BACKUP_CONFIG_DIR = MAIN_CONFIG_DIR + '/app_bak'
-UNPRIVILEGED_GID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
-UNPRIVILEGED_UID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
-
-MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
-MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
-MAGENTO2_CONF = MAIN_CONFIG_DIR + '/magento2.conf'
-
-NGINX = '/usr/sbin/nginx'
-NGINX_PID_FILE = '/var/run/nginx.pid'
-ERROR_FILE = 'nginx_error_output'
-
-WATCH_IGNORE_FILES = (
-    # glob patterns
-    '.*',
-    '*~',
-    '*.save',
-    ERROR_FILE
-)
-SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ('*.flag',)
-SYSLOG_SOCKET = '/dev/log'
-
-# Using include or load_module is forbidden unless
-# - it is in a comment
-# - the include is a relative path but does not contain  ..
-# - the include is absolute but in the MAIN_CONFIG_DIR
-# - but not in the BACKUP_CONFIG_DIR
-# - also takes into account double slashes
-# Because of bash escaping problems we define quote's in octal format \042 == ' and \047 == "
-
-# For security reasons the following nginx configuration parameters are forbidden
-FORBIDDEN_CONFIG_REGEX = \
-    [
-        ("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.\n"),
-        ("^(?!\s*#)\s*(access|error)_log\s*"
-         "(\\042|\\047)?\s*"
-         "(?!(off|on|/+data/+))(?=.*\.\.|/+(?!data)|\w)"
-         "(\\042|\\047)?\s*",
-         "It's not allowed store access_log or error_log outside of /data/.\n"),
-        ("^(?!\s*#)\s*(include|load_module)\s*"
-         "(\\042|\\047)?\s*"
-         "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))"
-         "(\\042|\\047)?\s*",
-         "You are not allowed to use include or load_module in the nginx config unless the path is relative "
-         "or in the main nginx config directory. "
-         "See the NGINX dos and don'ts in this article: "
-         "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n"),
-        ("init_by_lua", "Usage of Lua initialization is not allowed.\n"),
-    ]
+from nginx_config_reloader.copy_files import safe_copy_files
+from nginx_config_reloader.settings import DIR_TO_WATCH, WATCH_IGNORE_FILES, MAGENTO1_CONF, MAGENTO2_CONF, MAGENTO_CONF, \
+    FORBIDDEN_CONFIG_REGEX, ERROR_FILE, NGINX, BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR, NGINX_PID_FILE, UNPRIVILEGED_GID, \
+    UNPRIVILEGED_UID
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +164,9 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                 self.fix_custom_config_dir_permissions()
                 self.install_new_custom_config_dir()
             except (OSError, subprocess.CalledProcessError) as e:
-                error_output = "{}\n\n{}".format(str(e), getattr(e, 'output', ""))
+                error_output = str(e)
+                if hasattr(e, 'output'):
+                    error_output += "\n\n{}".format(e.output.decode())
                 self.logger.error("Installation of custom config failed")
                 self.restore_old_custom_config_dir()
                 self.write_error_file(error_output)
@@ -243,26 +196,13 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         except subprocess.CalledProcessError:
             self.logger.info("Failed fixing permissions on watched directory")
 
-    def copy_files(self, src, dest):
-        self.logger.debug("Dest before copy: {}".format(os.listdir(dest)))
-        # Adding a / at the end copies contents of the dir and not the dir itself
-        cmd = [
-            'rsync', src + '/', dest, '-ad', '--chmod="D755,F644"', '--chown', 'root:root', '--copy-links',
-            *["--exclude=\"{}\"".format(pattern) for pattern in SYNC_IGNORE_FILES],
-        ]
-        cmd = " ".join(cmd)
-        self.logger.debug("Running command: {}".format(cmd))
-        # shell=True to ensure globs are not escaped
-        subprocess.check_call(cmd, shell=True, stderr=subprocess.STDOUT)
-        self.logger.debug("Dest after copy: {}".format(os.listdir(dest)))
-
     def install_new_custom_config_dir(self):
         self.remove_error_file()
         shutil.rmtree(BACKUP_CONFIG_DIR, ignore_errors=True)
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
         os.mkdir(CUSTOM_CONFIG_DIR)
-        self.copy_files(self.dir_to_watch, CUSTOM_CONFIG_DIR)
+        safe_copy_files(self.dir_to_watch, CUSTOM_CONFIG_DIR)
 
     def restore_old_custom_config_dir(self):
         shutil.rmtree(CUSTOM_CONFIG_DIR)
