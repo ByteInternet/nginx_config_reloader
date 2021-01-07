@@ -166,7 +166,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             except (OSError, subprocess.CalledProcessError) as e:
                 error_output = str(e)
                 if hasattr(e, 'output'):
-                    error_output += "\n\n{}".format(e.output.decode())
+                    extra_output = e.output
+                    if isinstance(e.output, bytes):
+                        extra_output = extra_output.decode()
+                    error_output += "\n\n{}".format(extra_output)
                 self.logger.error("Installation of custom config failed")
                 self.restore_old_custom_config_dir()
                 self.write_error_file(error_output)
@@ -178,7 +181,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Config check failed")
             if not self.no_custom_config:
                 self.restore_old_custom_config_dir()
-            self.write_error_file(e.output)
+
+            if isinstance(e.output, bytes):
+                self.write_error_file(e.output.decode())
+            else:
+                self.write_error_file(e.output)
+
             return False
         else:
             self.remove_error_file()

@@ -95,6 +95,8 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             "access_log  ' /tmp/staging.log';",
             "access_log  ../../../some.log;",
             "access_log  \"../some.log\";",
+            "access_log   syslog:server=unix:/run/systemd/journal/stdout;",
+            "error_log  syslog:server=unix:/run/systemd/journal/stdout;",
         ]
 
         for test in TEST_CASES:
@@ -111,7 +113,9 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             "access_log '/data/var/log/access.log';",
             "     error_log \"/data/var/log/access.log;\"",
             "  access_log   \"//data//var//log//access.log;\"",
-            "#access_log /tmp/log.log;"
+            "#access_log /tmp/log.log;",
+            "access_log syslog:server=log.erikhyperdev.nl:2110 octologs_json;",
+            "access_log syslog:server=[2001:db8::1]:12345,facility=local7,tag=nginx,severity=info combined;"
         ]
 
         for test in TEST_CASES:

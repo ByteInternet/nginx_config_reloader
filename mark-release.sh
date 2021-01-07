@@ -92,11 +92,17 @@ deb_changelog_updated() {
     # use gbp dch itself to see if there are any changes detected.
     # this way the logic of detecting changes is more consistent with
     # the rest of the system.
-    # @TODO: use --debian-branch master instead of ignore-branch
-    gbp dch --debian-tag="%(version)s" --ignore-branch
-    # find changelog diff containing author names (in [ name ] format), which means
-    # there are new commits in changelog
-    local changed=$(git diff --text --ignore-all-space --unified=0 --no-color -G '\[ ' $CHANGELOG)
+    gbp dch --debian-tag="%(version)s" --debian-branch=master
+    # find changelog diff to see if there new commits in changelog.
+    # commits are usually added like this to the changelog:
+    #  [ author ]
+    #  * commit message
+    # first look for commit messages, if nothing found, then see if there is an empty author section,
+    # as a fallback.
+    local changed=$(git diff --text --ignore-all-space --unified=0 --no-color $CHANGELOG | grep --line-regexp --perl-regexp '\+\s{2,}\* .+')
+    if [[ -z "$changed" ]]; then
+        changed=$(git diff --text --ignore-all-space --unified=0 --no-color $CHANGELOG | grep --line-regexp --perl-regexp '\+\\s{2,}\[.+\].*')
+    fi
     log "reverting possible changes in debian changelog during update detection"
     git checkout -- $CHANGELOG
     if [[ -n "$changed" ]]; then
@@ -113,8 +119,7 @@ mark_release() {
     sed -i "s/version=\".*\",/version=\"$VERSION\",/" $setuppy
     git add $setuppy
     log "generating debian changelog"
-    # @TODO: use --debian-branch master instead of ignore-branch
-    gbp dch --debian-tag="%(version)s" --new-version=$VERSION --ignore-branch
+    gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch=master
     git add $CHANGELOG
 }
 

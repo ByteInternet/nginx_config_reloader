@@ -36,7 +36,7 @@ FORBIDDEN_CONFIG_REGEX = [
     ("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.\n"),
     ("^(?!\s*#)\s*(access|error)_log\s*"
      "(\\042|\\047)?\s*"
-     "(?!(off|on|/+data/+))(?=.*\.\.|/+(?!data)|\w)"
+     "(?!(off|on|/+data/+|syslog:server=(?!unix)))(?=.*\.\.|/+(?!data)|\w)"
      "(\\042|\\047)?\s*",
      "It's not allowed store access_log or error_log outside of /data/.\n"),
     ("^(?!\s*#)\s*(include|load_module)\s*"
