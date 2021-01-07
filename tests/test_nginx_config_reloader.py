@@ -1,4 +1,5 @@
 import os
+import stat
 import subprocess
 from tempfile import mkdtemp, mkstemp, NamedTemporaryFile
 import shutil
@@ -236,9 +237,9 @@ class TestConfigReloader(TestCase):
 
         self.assertEqual(len(self.kill.mock_calls), 0)
 
-    def test_that_apply_new_config_doesnt_fail_on_failing_copy(self):
-        copytree = self.set_up_patch('shutil.copytree')
-        copytree.side_effect = OSError('Directory doesnt exist')
+    def test_that_apply_new_config_doesnt_fail_on_failed_rsync(self):
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
 
         tm = self._get_nginx_config_reloader_instance()
         result = tm.apply_new_config()
@@ -369,6 +370,149 @@ class TestConfigReloader(TestCase):
             tm.install_new_custom_config_dir()
 
         self.assertTrue(mock_remove_error_file.called)
+
+    def test_recursive_symlink_is_not_copied(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.symlink(
+            self.source,
+            os.path.join(self.source, 'new_dir/recursive_symlink')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.exists(self._dest('new_dir/recursive_symlink')))
+
+    def test_backup_is_placed_if_custom_config_fails_to_be_placed(self):
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
+        os.mkdir(self._dest('old_dir'))
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(self._dest('old_dir')))
+
+    def test_other_files_are_not_placed_on_rsync_error(self):
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
+
+        os.mkdir(self._source('new_dir'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.exists(self._dest('new_dir')))
+
+    def test_rsync_error_is_placed_in_error_file(self):
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
+
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        # Python 2.7 doesnt allow kwargs for symlink. Order is src -> dest
+        os.symlink(
+            self.source,
+            os.path.join(self.source, 'new_dir/recursive_symlink')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(self.error_file))
+        with open(self.error_file) as fp:
+            self.assertIn("Rsync error", fp.read())
+
+    def test_reloader_doesnt_crash_if_source_dir_is_empty(self):
+        shutil.rmtree(self.source, ignore_errors=True)
+        os.mkdir(self.source)
+
+        # Doesn't crash
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+
+    def test_files_are_copied(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(os.path.join(self.dest, 'server.test.cnf')))
+        with open(os.path.join(self.dest, 'server.test.cnf')) as fp:
+            self.assertIn('test', fp.read())
+
+    def test_new_dir_is_placed(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertTrue(os.path.exists(os.path.join(self.dest, 'new_dir')))
+
+    def test_dotfiles_are_ignored(self):
+        os.mkdir(os.path.join(self.source, '.git'))
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.exists(os.path.join(self.dest, '.git')))
+
+    def test_symlink_to_file_is_copied_to_file(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.symlink(
+            os.path.join(self.source, 'server.test.cnf'),
+            os.path.join(self.source, 'symlink')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.islink(os.path.join(self.dest, 'symlink')))
+        self.assertTrue(os.path.isfile(os.path.join(self.dest, 'symlink')))
+
+    def test_symlink_to_dir_is_copied_to_dir(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.symlink(
+            os.path.join(self.source, 'new_dir'),
+            os.path.join(self.source, 'symlink')
+        )
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.path.islink(os.path.join(self.dest, 'symlink')))
+        self.assertTrue(os.path.isdir(os.path.join(self.dest, 'symlink')))
+
+    def test_sticky_bits_are_removed_from_dir(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.chmod(os.path.join(self.source, 'new_dir'), 0o4755)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'new_dir')).st_mode))[-5:], '40755')
+
+    def test_sticky_bits_are_removed_from_file(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o4644)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'server.test.cnf')).st_mode))[-4:], '0644')
+
+    def test_dir_is_chmodded_to_0755(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        os.chmod(os.path.join(self.source, 'new_dir'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertEqual(str(oct(os.stat(os.path.join(self.dest, 'new_dir')).st_mode))[-5:], '40755')
+
+    def test_execute_permissions_are_stripped_for_others(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.stat(os.path.join(self.dest, 'server.test.cnf')).st_mode & stat.S_IXOTH)
+
+    def test_write_permissions_are_stripped_for_others(self):
+        with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'server.test.cnf'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.stat(os.path.join(self.dest, 'server.test.cnf')).st_mode & stat.S_IWOTH)
+
+    def test_permissions_are_masked_for_file_in_subdir(self):
+        os.mkdir(os.path.join(self.source, 'new_dir'))
+        with open(os.path.join(self.source, 'new_dir/server.test.cnf'), 'w') as fp:
+            fp.write("test")
+        os.chmod(os.path.join(self.source, 'new_dir/server.test.cnf'), 0o777)
+        tm = self._get_nginx_config_reloader_instance()
+        tm.apply_new_config()
+        self.assertFalse(os.stat(os.path.join(self.dest, 'new_dir/server.test.cnf')).st_mode & stat.S_IXOTH)
 
     def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
         return nginx_config_reloader.NginxConfigReloader(
