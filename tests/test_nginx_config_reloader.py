@@ -238,8 +238,8 @@ class TestConfigReloader(TestCase):
         self.assertEqual(len(self.kill.mock_calls), 0)
 
     def test_that_apply_new_config_doesnt_fail_on_failed_rsync(self):
-        check_output = self.set_up_patch('nginx_config_reloader.copy_files.check_output')
-        check_output.side_effect = OSError('Rsync error')
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
 
         tm = self._get_nginx_config_reloader_instance()
         result = tm.apply_new_config()
@@ -379,8 +379,8 @@ class TestConfigReloader(TestCase):
         self.assertFalse(os.path.exists(self._dest('new_dir/recursive_symlink')))
 
     def test_backup_is_placed_if_custom_config_fails_to_be_placed(self):
-        check_output = self.set_up_patch('nginx_config_reloader.copy_files.check_output')
-        check_output.side_effect = OSError('Rsync error')
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
         os.mkdir(self._dest('old_dir'))
 
         tm = self._get_nginx_config_reloader_instance()
@@ -388,8 +388,8 @@ class TestConfigReloader(TestCase):
         self.assertTrue(os.path.exists(self._dest('old_dir')))
 
     def test_other_files_are_not_placed_on_rsync_error(self):
-        check_output = self.set_up_patch('nginx_config_reloader.copy_files.check_output')
-        check_output.side_effect = OSError('Rsync error')
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
 
         os.mkdir(self._source('new_dir'))
         tm = self._get_nginx_config_reloader_instance()
@@ -397,8 +397,8 @@ class TestConfigReloader(TestCase):
         self.assertFalse(os.path.exists(self._dest('new_dir')))
 
     def test_rsync_error_is_placed_in_error_file(self):
-        check_output = self.set_up_patch('nginx_config_reloader.copy_files.check_output')
-        check_output.side_effect = OSError('Rsync error')
+        safe_copy_files = self.set_up_patch('nginx_config_reloader.safe_copy_files')
+        safe_copy_files.side_effect = OSError('Rsync error')
 
         os.mkdir(os.path.join(self.source, 'new_dir'))
         os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
@@ -528,9 +528,6 @@ class TestConfigReloader(TestCase):
 
     def _dest(self, name):
         return os.path.join(self.dest, name)
-
-    def _backup(self, name):
-        return os.path.join(self.backup, name)
 
 
 class Event:
