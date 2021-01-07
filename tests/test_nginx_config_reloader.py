@@ -373,7 +373,10 @@ class TestConfigReloader(TestCase):
 
     def test_recursive_symlink_is_not_copied(self):
         os.mkdir(os.path.join(self.source, 'new_dir'))
-        os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
+        os.symlink(
+            self.source,
+            os.path.join(self.source, 'new_dir/recursive_symlink')
+        )
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
         self.assertFalse(os.path.exists(self._dest('new_dir/recursive_symlink')))
@@ -401,7 +404,11 @@ class TestConfigReloader(TestCase):
         safe_copy_files.side_effect = OSError('Rsync error')
 
         os.mkdir(os.path.join(self.source, 'new_dir'))
-        os.symlink(dst=os.path.join(self.source, 'new_dir/recursive_symlink'), src=self.source)
+        # Python 2.7 doesnt allow kwargs for symlink. Order is src -> dest
+        os.symlink(
+            self.source,
+            os.path.join(self.source, 'new_dir/recursive_symlink')
+        )
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
         self.assertTrue(os.path.exists(self.error_file))
@@ -441,8 +448,8 @@ class TestConfigReloader(TestCase):
         with open(os.path.join(self.source, 'server.test.cnf'), 'w') as fp:
             fp.write("test")
         os.symlink(
-            dst=os.path.join(self.source, 'symlink'),
-            src=os.path.join(self.source, 'server.test.cnf')
+            os.path.join(self.source, 'server.test.cnf'),
+            os.path.join(self.source, 'symlink')
         )
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
@@ -452,8 +459,8 @@ class TestConfigReloader(TestCase):
     def test_symlink_to_dir_is_copied_to_dir(self):
         os.mkdir(os.path.join(self.source, 'new_dir'))
         os.symlink(
-            dst=os.path.join(self.source, 'symlink'),
-            src=os.path.join(self.source, 'new_dir')
+            os.path.join(self.source, 'new_dir'),
+            os.path.join(self.source, 'symlink')
         )
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
