@@ -289,6 +289,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
 
         try:
             logger.info("Listening for changes to {}".format(dir_to_watch))
+            notifier.coalesce_events()
             notifier.loop()
         except pyinotify.NotifierError as err:
             logger.critical(err)
