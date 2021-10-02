@@ -24,7 +24,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def my_init(
             self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
-            magento2_flag=None
+            magento2_flag=None, notifier=None
     ):
         """Constructor called by ProcessEvent
 
@@ -46,6 +46,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         else:
             self.magento2_flag = magento2_flag
         self.logger.info(self.dir_to_watch)
+        self.notifier = notifier
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -78,6 +79,13 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         raise ListenTargetTerminated
 
     def handle_event(self, event):
+        queue_length = len(self.notifier._eventq)
+        self.logger.info("Queue length is {}".format(queue_length))
+        if queue_length > 1:
+            self.logger.info("Another event in the queue, skipping this reload")
+            return
+        self.logger.info("Waiting 10 seconds for reload in case subsequent mutations are taking place")
+        time.sleep(5)
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}".format(event.maskname, event.name))
             self.apply_new_config()
@@ -268,6 +276,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
         no_magento_config=no_magento_config,
         no_custom_config=no_custom_config,
         dir_to_watch=dir_to_watch,
+        notifier=notifier
     )
 
     class SymlinkChangedHandler(pyinotify.ProcessEvent):
