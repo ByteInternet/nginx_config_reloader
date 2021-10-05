@@ -1,4 +1,4 @@
-nginx-config-reloader (20211005.085543) UNRELEASED; urgency=medium
+nginx-config-reloader (20211005.124847) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -37,8 +37,11 @@ nginx-config-reloader (20211005.085543) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * coalesce-events-in-nginx-config-reloader
+  * [WIP] proof of concept delayed reload
+  * skip superfluous config reloads
+  * don't use internal to check queue status
 
- -- Hypernode team <hypernode@byte.nl>  Tue, 05 Oct 2021 08:55:44 +0000
+ -- Hypernode team <hypernode@byte.nl>  Tue, 05 Oct 2021 12:48:49 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
