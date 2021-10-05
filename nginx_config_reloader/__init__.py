@@ -15,7 +15,7 @@ import time
 from nginx_config_reloader.copy_files import safe_copy_files
 from nginx_config_reloader.settings import DIR_TO_WATCH, WATCH_IGNORE_FILES, MAGENTO1_CONF, MAGENTO2_CONF, MAGENTO_CONF, \
     FORBIDDEN_CONFIG_REGEX, ERROR_FILE, NGINX, BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR, NGINX_PID_FILE, UNPRIVILEGED_GID, \
-    UNPRIVILEGED_UID
+    UNPRIVILEGED_UID, RELOAD_SLEEP
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,9 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("Detected other reloads in queue, skipping this one.")
             return
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
-            self.logger.info("{} detected on {}.".format(event.maskname, event.name))
+            self.logger.info("{} detected on {}. Reloading in {} seconds.".format(event.maskname, event.name, RELOAD_SLEEP))
+            time.sleep(RELOAD_SLEEP)
+            self.logger.info("Waited {} seconds, reloading now..".format(RELOAD_SLEEP))
             self.apply_new_config()
 
     def install_magento_config(self):

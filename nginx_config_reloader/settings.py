@@ -4,6 +4,7 @@ CUSTOM_CONFIG_DIR = MAIN_CONFIG_DIR + '/app'
 BACKUP_CONFIG_DIR = MAIN_CONFIG_DIR + '/app_bak'
 UNPRIVILEGED_GID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
 UNPRIVILEGED_UID = 1000  # This is the 'app' user on a Hypernode, or generally the first user on any system
+RELOAD_SLEEP = 3  # The time we should wait after detecting a change and before initiating the reload
 
 MAGENTO_CONF = MAIN_CONFIG_DIR + '/magento.conf'
 MAGENTO1_CONF = MAIN_CONFIG_DIR + '/magento1.conf'
