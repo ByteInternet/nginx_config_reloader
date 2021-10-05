@@ -49,7 +49,7 @@ class TestMain(TestCase):
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir
         )
-        self.reloader.return_value.apply_new_config()
+        self.reloader.return_value.apply_new_config.assert_called_once_with()
 
     def test_main_does_not_watch_the_config_dir_if_monitor_mode_not_specified(self):
         main()
