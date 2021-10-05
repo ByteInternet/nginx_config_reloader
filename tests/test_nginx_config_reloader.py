@@ -6,7 +6,6 @@ import shutil
 import signal
 import mock
 import nginx_config_reloader
-from nginx_config_reloader import HANDLE_SLEEP
 from tests.testcase import TestCase
 from unittest.mock import Mock
 
@@ -14,7 +13,6 @@ from unittest.mock import Mock
 class TestConfigReloader(TestCase):
 
     def setUp(self):
-        self.sleep = self.set_up_patch('nginx_config_reloader.time.sleep')
         self.get_pid = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.get_nginx_pid')
         self.get_pid.return_value = 42
         self.fix_custom_config_dir_permissions = self.set_up_patch(
@@ -39,7 +37,8 @@ class TestConfigReloader(TestCase):
         self.test_config = self.set_up_patch('subprocess.check_output')
         self.kill = self.set_up_patch('os.kill')
         self.error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
-        self.notifier = Mock(_eventq=[Mock()])
+        self.notifier = Mock()
+        self.notifier.check_events.return_value = False
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -330,14 +329,10 @@ class TestConfigReloader(TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
-    def test_that_handle_event_sleeps_if_handling_reload(self):
-        tm = self._get_nginx_config_reloader_instance()
-        tm.handle_event(Event('some_file'))
-
-        self.sleep.assert_called_once_with(HANDLE_SLEEP)
-
-    def test_that_handle_event_does_not_apply_config_if_queue_length_larger_than_one(self):
-        tm = self._get_nginx_config_reloader_instance(notifier=Mock(_eventq=[Mock()] * 2))
+    def test_that_handle_event_does_not_apply_config_if_other_events_in_queue(self):
+        notifier = Mock()
+        notifier.check_events.return_value = True
+        tm = self._get_nginx_config_reloader_instance(notifier=notifier)
         tm.handle_event(Event('some_file'))
 
         self.assertFalse(self.kill.called)
