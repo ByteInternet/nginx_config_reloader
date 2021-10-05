@@ -7,6 +7,7 @@ import signal
 import mock
 import nginx_config_reloader
 from tests.testcase import TestCase
+from unittest.mock import Mock
 
 
 class TestConfigReloader(TestCase):
@@ -36,6 +37,8 @@ class TestConfigReloader(TestCase):
         self.test_config = self.set_up_patch('subprocess.check_output')
         self.kill = self.set_up_patch('os.kill')
         self.error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
+        self.notifier = Mock()
+        self.notifier.check_events.return_value = False
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -326,6 +329,14 @@ class TestConfigReloader(TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
+    def test_that_handle_event_does_not_apply_config_if_other_events_in_queue(self):
+        notifier = Mock()
+        notifier.check_events.return_value = True
+        tm = self._get_nginx_config_reloader_instance(notifier=notifier)
+        tm.handle_event(Event('some_file'))
+
+        self.assertFalse(self.kill.called)
+
     def test_that_flags_trigger_config_reload(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('magento2.flag'))
@@ -514,12 +525,18 @@ class TestConfigReloader(TestCase):
         tm.apply_new_config()
         self.assertFalse(os.stat(os.path.join(self.dest, 'new_dir/server.test.cnf')).st_mode & stat.S_IXOTH)
 
-    def _get_nginx_config_reloader_instance(self, no_magento_config=False, no_custom_config=False, magento2_flag=None):
+    def _get_nginx_config_reloader_instance(
+            self, no_magento_config=False,
+            no_custom_config=False,
+            magento2_flag=None,
+            notifier=None
+    ):
         return nginx_config_reloader.NginxConfigReloader(
             no_magento_config=no_magento_config,
             no_custom_config=no_custom_config,
             dir_to_watch=self.source,
-            magento2_flag=magento2_flag
+            magento2_flag=magento2_flag,
+            notifier=notifier or self.notifier
         )
 
     def _write_file(self, name, contents):
