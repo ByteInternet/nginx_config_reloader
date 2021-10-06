@@ -329,6 +329,12 @@ class TestConfigReloader(TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
+    def test_that_handle_event_applies_config_if_no_notifier(self):
+        tm = self._get_nginx_config_reloader_instance(notifier=None)
+        tm.handle_event(Event('some_file'))
+
+        self.kill.assert_called_once_with(42, signal.SIGHUP)
+
     def test_that_handle_event_does_not_apply_config_if_other_events_in_queue(self):
         notifier = Mock()
         notifier.check_events.return_value = True
