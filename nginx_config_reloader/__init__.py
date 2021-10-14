@@ -79,11 +79,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         raise ListenTargetTerminated
 
     def handle_event(self, event):
-        try:
-            while self.notifier._eventq.pop():
-                continue
-        except IndexError:
-            pass
+        self.notifier._eventq.clear()
 
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))

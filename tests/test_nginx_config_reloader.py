@@ -1,6 +1,7 @@
 import os
 import stat
 import subprocess
+from collections import deque
 from tempfile import mkdtemp, mkstemp, NamedTemporaryFile
 import shutil
 import signal
@@ -37,7 +38,7 @@ class TestConfigReloader(TestCase):
         self.test_config = self.set_up_patch('subprocess.check_output')
         self.kill = self.set_up_patch('os.kill')
         self.error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
-        self.notifier = Mock(_eventq=list(range(5)))
+        self.notifier = Mock(_eventq=deque(range(5)))
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -330,7 +331,7 @@ class TestConfigReloader(TestCase):
 
     def test_that_handle_event_clears_queue(self):
         notifier = Mock()
-        notifier._eventq = list(range(10))
+        notifier._eventq = deque(range(10))
         tm = self._get_nginx_config_reloader_instance(notifier=notifier)
         tm.handle_event(Event('some_file'))
 
@@ -339,7 +340,7 @@ class TestConfigReloader(TestCase):
     def test_that_handle_event_calls_apply_new_config(self):
         apply_new_config_mock = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.apply_new_config')
         notifier = Mock()
-        notifier._eventq = list(range(10))
+        notifier._eventq = deque(range(10))
         tm = self._get_nginx_config_reloader_instance(notifier=notifier)
         tm.handle_event(Event('some_file'))
 
