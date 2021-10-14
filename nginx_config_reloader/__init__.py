@@ -79,9 +79,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         raise ListenTargetTerminated
 
     def handle_event(self, event):
-        if self.notifier and self.notifier.check_events(timeout=100):
-            self.logger.info("Detected other reloads in queue, skipping this one.")
-            return
+        try:
+            while self.notifier._eventq.pop():
+                continue
+        except IndexError:
+            pass
+
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
             self.apply_new_config()

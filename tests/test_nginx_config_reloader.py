@@ -37,8 +37,7 @@ class TestConfigReloader(TestCase):
         self.test_config = self.set_up_patch('subprocess.check_output')
         self.kill = self.set_up_patch('os.kill')
         self.error_file = os.path.join(nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE)
-        self.notifier = Mock()
-        self.notifier.check_events.return_value = False
+        self.notifier = Mock(_eventq=list(range(5)))
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -329,19 +328,22 @@ class TestConfigReloader(TestCase):
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
-    def test_that_handle_event_applies_config_if_no_notifier(self):
-        tm = self._get_nginx_config_reloader_instance(notifier=None)
-        tm.handle_event(Event('some_file'))
-
-        self.kill.assert_called_once_with(42, signal.SIGHUP)
-
-    def test_that_handle_event_does_not_apply_config_if_other_events_in_queue(self):
+    def test_that_handle_event_clears_queue(self):
         notifier = Mock()
-        notifier.check_events.return_value = True
+        notifier._eventq = list(range(10))
         tm = self._get_nginx_config_reloader_instance(notifier=notifier)
         tm.handle_event(Event('some_file'))
 
-        self.assertFalse(self.kill.called)
+        self.assertEqual(notifier._eventq, [])
+
+    def test_that_handle_event_calls_apply_new_config(self):
+        apply_new_config_mock = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.apply_new_config')
+        notifier = Mock()
+        notifier._eventq = list(range(10))
+        tm = self._get_nginx_config_reloader_instance(notifier=notifier)
+        tm.handle_event(Event('some_file'))
+
+        apply_new_config_mock.assert_called_once_with()
 
     def test_that_flags_trigger_config_reload(self):
         tm = self._get_nginx_config_reloader_instance()
