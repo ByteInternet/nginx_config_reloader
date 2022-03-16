@@ -29,7 +29,9 @@ class TestParseNginxConfigReloaderArguments(TestCase):
             call('--watchdir', '-w',
                 help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH),
             call('--recursivewatch', action='store_true',
-                 help='Enable recursive watching of subdirectories', default=False)
+                 help='Enable recursive watching of subdirectories', default=False),
+            call('--use-systemd', action='store_true',
+                 help='Reload nginx using systemd instead of process signal', default=False)
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls

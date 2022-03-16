@@ -335,7 +335,7 @@ class TestConfigReloader(TestCase):
         tm = self._get_nginx_config_reloader_instance(notifier=notifier)
         tm.handle_event(Event('some_file'))
 
-        self.assertEqual(notifier._eventq, [])
+        self.assertEqual(list(notifier._eventq), [])
 
     def test_that_handle_event_calls_apply_new_config(self):
         apply_new_config_mock = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.apply_new_config')
