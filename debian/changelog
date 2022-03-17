@@ -1,4 +1,4 @@
-nginx-config-reloader (20211014.163011) UNRELEASED; urgency=medium
+nginx-config-reloader (20220317.093631) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -46,7 +46,10 @@ nginx-config-reloader (20211014.163011) UNRELEASED; urgency=medium
   * Clear inotify eventq before every reload to prevent too many nginx reloads
   * Use clear() instead of pop()
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 14 Oct 2021 16:30:12 +0000
+  [ Timon de Groot ]
+  * Add option --use-systemd to reload nginx with systemctl
+
+ -- Hypernode team <hypernode@byte.nl>  Thu, 17 Mar 2022 09:36:32 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
