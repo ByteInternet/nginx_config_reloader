@@ -24,7 +24,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def my_init(
             self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
-            magento2_flag=None, notifier=None
+            magento2_flag=None, notifier=None, use_systemd=False
     ):
         """Constructor called by ProcessEvent
 
@@ -47,6 +47,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.magento2_flag = magento2_flag
         self.logger.info(self.dir_to_watch)
         self.notifier = notifier
+        self.use_systemd = use_systemd
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -221,12 +222,15 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             shutil.move(BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR)
 
     def reload_nginx(self):
-        pid = self.get_nginx_pid()
-        if not pid:
-            self.logger.warning("Not reloading, nginx not running")
+        if self.use_systemd:
+            subprocess.check_call(["systemctl", "reload", "nginx"])
         else:
-            self.logger.info("Reloading nginx config")
-            os.kill(pid, signal.SIGHUP)
+            pid = self.get_nginx_pid()
+            if not pid:
+                self.logger.warning("Not reloading, nginx not running")
+            else:
+                self.logger.info("Reloading nginx config")
+                os.kill(pid, signal.SIGHUP)
 
     def get_nginx_pid(self):
         try:
@@ -245,7 +249,7 @@ class ListenTargetTerminated(BaseException):
 
 
 def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
-              recursive_watch=False):
+              recursive_watch=False, use_systemd=False):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -271,7 +275,8 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
         no_magento_config=no_magento_config,
         no_custom_config=no_custom_config,
         dir_to_watch=dir_to_watch,
-        notifier=notifier
+        notifier=notifier,
+        use_systemd=use_systemd
     )
 
     class SymlinkChangedHandler(pyinotify.ProcessEvent):
@@ -317,6 +322,7 @@ def parse_nginx_config_reloader_arguments():
     )
     parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
     parser.add_argument('--recursivewatch', action='store_true', help='Enable recursive watching of subdirectories', default=False)
+    parser.add_argument('--use-systemd', action='store_true', help='Reload nginx using systemd instead of process signal', default=False)
     return parser.parse_args()
 
 
@@ -339,7 +345,8 @@ def main():
             no_magento_config=args.nomagentoconfig,
             no_custom_config=args.nocustomconfig,
             dir_to_watch=args.watchdir,
-            recursive_watch=args.recursivewatch
+            recursive_watch=args.recursivewatch,
+            use_systemd=args.use_systemd,
         )
         # should never return
         return 1
@@ -349,7 +356,8 @@ def main():
             logger=log,
             no_magento_config=args.nomagentoconfig,
             no_custom_config=args.nocustomconfig,
-            dir_to_watch=args.watchdir
+            dir_to_watch=args.watchdir,
+            use_systemd=args.use_systemd,
         ).apply_new_config()
         return 0
 
