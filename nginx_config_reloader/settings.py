@@ -34,15 +34,15 @@ SYSLOG_SOCKET = '/dev/log'
 # For security reasons the following nginx configuration parameters are forbidden
 FORBIDDEN_CONFIG_REGEX = [
     ("client_body_temp_path", "Usage of configuration parameter client_body_temp_path is not allowed.\n"),
-    ("^(?!\s*#)\s*(access|error)_log\s*"
-     "(\\042|\\047)?\s*"
-     "(?!(off|on|/+data/+|syslog:server=(?!unix)))(?=.*\.\.|/+(?!data)|\w)"
-     "(\\042|\\047)?\s*",
+    ("^(?!\\s*#)\\s*(access|error)_log\\s*"
+     "(\\042|\\047)?\\s*"
+     "(?!(off|on|/+data/+|syslog:server=(?!unix)))(?=.*\\.\\.|/+(?!data)|\\w)"
+     "(\\042|\\047)?\\s*",
      "It's not allowed store access_log or error_log outside of /data/.\n"),
-    ("^(?!\s*#)\s*(include|load_module)\s*"
-     "(\\042|\\047)?\s*"
-     "(?=.*\.\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))"
-     "(\\042|\\047)?\s*",
+    ("^(?!\\s*#)\\s*(include|load_module)\\s*"
+     "(\\042|\\047)?\\s*"
+     "(?=.*\\.\\.|/+etc/+nginx/+app_bak|/+(?!etc/+nginx))"
+     "(\\042|\\047)?\\s*",
      "You are not allowed to use include or load_module in the nginx config unless the path is relative "
      "or in the main nginx config directory. "
      "See the NGINX dos and don'ts in this article: "
