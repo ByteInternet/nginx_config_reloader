@@ -10,13 +10,13 @@ the error message from nginx will be placed in `/data/web/nginx/nginx_error_outp
 
 ## Installation
 
-```
+```bash
 python setup.py install
 ```
 
 or
 
-```
+```bash
 pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=nginx_config_reloader
 ```
 
@@ -31,16 +31,16 @@ pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=ngi
 
 ## Running tests
 
-```sh
+```bash
 pip install -r requirements.txt
-./runtests.sh -1
+tox
 ```
 
 ## Building debian packages
 
 To create a package from "master" branch (for production) run the "build.sh" script
 
-```sh
+```bash
 ./build.sh
 ```
 
@@ -49,6 +49,6 @@ This would create a release tag as well.
 If you'd like to create a Debian package of a development branch (without tagging, etc.)
 you can use "_build_local.sh" script
 
-```sh
+```bash
 ./_build_local.sh
 ```
