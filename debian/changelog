@@ -1,4 +1,4 @@
-nginx-config-reloader (20230208.102000) UNRELEASED; urgency=medium
+nginx-config-reloader (20230208.154854) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -50,8 +50,9 @@ nginx-config-reloader (20230208.102000) UNRELEASED; urgency=medium
   * Add option --use-systemd to reload nginx with systemctl
   * Update test procedure to just tox and pytest
   * ci: Add Github Actions configuration to run tests
+  * Fix DeprecationWarning in forbidden config regexes
 
- -- Hypernode team <hypernode@byte.nl>  Wed, 08 Feb 2023 10:20:02 +0000
+ -- Hypernode team <hypernode@byte.nl>  Wed, 08 Feb 2023 15:48:55 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
