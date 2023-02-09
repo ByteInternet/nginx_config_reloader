@@ -1,30 +1,49 @@
 #!/usr/bin/env python
 from __future__ import absolute_import
+
 import argparse
 import fnmatch
-
-import pyinotify
-import subprocess
-import signal
-import os
 import logging
 import logging.handlers
+import os
 import shutil
+import signal
+import subprocess
 import sys
 import time
 
+import pyinotify
+
 from nginx_config_reloader.copy_files import safe_copy_files
-from nginx_config_reloader.settings import DIR_TO_WATCH, WATCH_IGNORE_FILES, MAGENTO1_CONF, MAGENTO2_CONF, MAGENTO_CONF, \
-    FORBIDDEN_CONFIG_REGEX, ERROR_FILE, NGINX, BACKUP_CONFIG_DIR, CUSTOM_CONFIG_DIR, NGINX_PID_FILE, UNPRIVILEGED_GID, \
-    UNPRIVILEGED_UID
+from nginx_config_reloader.settings import (
+    BACKUP_CONFIG_DIR,
+    CUSTOM_CONFIG_DIR,
+    DIR_TO_WATCH,
+    ERROR_FILE,
+    FORBIDDEN_CONFIG_REGEX,
+    MAGENTO1_CONF,
+    MAGENTO2_CONF,
+    MAGENTO_CONF,
+    NGINX,
+    NGINX_PID_FILE,
+    UNPRIVILEGED_GID,
+    UNPRIVILEGED_UID,
+    WATCH_IGNORE_FILES,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
     def my_init(
-            self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
-            magento2_flag=None, notifier=None, use_systemd=False
+        self,
+        logger=None,
+        no_magento_config=False,
+        no_custom_config=False,
+        dir_to_watch=DIR_TO_WATCH,
+        magento2_flag=None,
+        notifier=None,
+        use_systemd=False,
     ):
         """Constructor called by ProcessEvent
 
@@ -42,7 +61,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.no_custom_config = no_custom_config
         self.dir_to_watch = dir_to_watch
         if not magento2_flag:
-            self.magento2_flag = dir_to_watch + '/magento2.flag'
+            self.magento2_flag = dir_to_watch + "/magento2.flag"
         else:
             self.magento2_flag = magento2_flag
         self.logger.info(self.dir_to_watch)
@@ -87,7 +106,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         os.stat(MAGENTO2_CONF)
 
         # Create new temporary filename for new config
-        MAGENTO_CONF_NEW = MAGENTO_CONF + '_new'
+        MAGENTO_CONF_NEW = MAGENTO_CONF + "_new"
 
         # Remove tmp link if it exists (leftover?)
         try:
@@ -123,10 +142,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                     # @TODO: use Python to search for forbidden configs instead
                     # of spawning external procs. Will have better testing
                     # and even may consume less system resources
-                    check_external_resources = \
+                    check_external_resources = (
                         "[ $(grep -r --exclude={} -P '{}' '{}' | wc -l) -lt 1 ]".format(
                             ERROR_FILE, rules[0], self.dir_to_watch
                         )
+                    )
                     subprocess.check_output(check_external_resources, shell=True)
                 except subprocess.CalledProcessError:
                     error = "Unable to load config: {}".format(rules[1])
@@ -164,7 +184,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                 self.install_new_custom_config_dir()
             except (OSError, subprocess.CalledProcessError) as e:
                 error_output = str(e)
-                if hasattr(e, 'output'):
+                if hasattr(e, "output"):
                     extra_output = e.output
                     if isinstance(e.output, bytes):
                         extra_output = extra_output.decode()
@@ -175,7 +195,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
                 return False
 
         try:
-            subprocess.check_output([NGINX, '-t'], stderr=subprocess.STDOUT)
+            subprocess.check_output([NGINX, "-t"], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             self.logger.info("Config check failed")
             if not self.no_custom_config:
@@ -237,13 +257,13 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def get_nginx_pid(self):
         try:
-            with open(NGINX_PID_FILE, 'r') as f:
+            with open(NGINX_PID_FILE, "r") as f:
                 return int(f.read())
         except (IOError, ValueError):
             return None
 
     def write_error_file(self, error):
-        with open(os.path.join(self.dir_to_watch, ERROR_FILE), 'w') as f:
+        with open(os.path.join(self.dir_to_watch, ERROR_FILE), "w") as f:
             f.write(error)
 
 
@@ -257,8 +277,14 @@ def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
         nginx_config_reloader.dirty = False
 
 
-def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
-              recursive_watch=False, use_systemd=False):
+def wait_loop(
+    logger=None,
+    no_magento_config=False,
+    no_custom_config=False,
+    dir_to_watch=DIR_TO_WATCH,
+    recursive_watch=False,
+    use_systemd=False,
+):
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
@@ -285,22 +311,31 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
         no_custom_config=no_custom_config,
         dir_to_watch=dir_to_watch,
         notifier=notifier,
-        use_systemd=use_systemd
+        use_systemd=use_systemd,
     )
 
     class SymlinkChangedHandler(pyinotify.ProcessEvent):
         def process_IN_DELETE(self, event):
             if event.pathname == dir_to_watch:
-                raise ListenTargetTerminated('watched directory was deleted')
+                raise ListenTargetTerminated("watched directory was deleted")
 
     while True:
         while not os.path.exists(dir_to_watch):
-            logger.warning("Configuration dir {} not found, waiting...".format(dir_to_watch))
+            logger.warning(
+                "Configuration dir {} not found, waiting...".format(dir_to_watch)
+            )
             time.sleep(5)
 
-        wm.add_watch(dir_to_watch, pyinotify.ALL_EVENTS, nginx_config_changed_handler,
-                     rec=recursive_watch, auto_add=True)
-        wm.watch_transient_file(dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler)
+        wm.add_watch(
+            dir_to_watch,
+            pyinotify.ALL_EVENTS,
+            nginx_config_changed_handler,
+            rec=recursive_watch,
+            auto_add=True,
+        )
+        wm.watch_transient_file(
+            dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler
+        )
 
         # Install initial configuration
         nginx_config_changed_handler.apply_new_config()
@@ -322,22 +357,47 @@ def as_unprivileged_user():
 
 def parse_nginx_config_reloader_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--monitor', '-m', action='store_true', help='Monitor files on foreground with output')
     parser.add_argument(
-        '--nomagentoconfig', action='store_true', help='Disable Magento configuration', default=False
+        "--monitor",
+        "-m",
+        action="store_true",
+        help="Monitor files on foreground with output",
     )
     parser.add_argument(
-        '--nocustomconfig', action='store_true', help='Disable copying custom configuration', default=False
+        "--nomagentoconfig",
+        action="store_true",
+        help="Disable Magento configuration",
+        default=False,
     )
-    parser.add_argument('--watchdir', '-w', help='Set directory to watch', default=DIR_TO_WATCH)
-    parser.add_argument('--recursivewatch', action='store_true', help='Enable recursive watching of subdirectories', default=False)
-    parser.add_argument('--use-systemd', action='store_true', help='Reload nginx using systemd instead of process signal', default=False)
+    parser.add_argument(
+        "--nocustomconfig",
+        action="store_true",
+        help="Disable copying custom configuration",
+        default=False,
+    )
+    parser.add_argument(
+        "--watchdir", "-w", help="Set directory to watch", default=DIR_TO_WATCH
+    )
+    parser.add_argument(
+        "--recursivewatch",
+        action="store_true",
+        help="Enable recursive watching of subdirectories",
+        default=False,
+    )
+    parser.add_argument(
+        "--use-systemd",
+        action="store_true",
+        help="Reload nginx using systemd instead of process signal",
+        default=False,
+    )
     return parser.parse_args()
 
 
 def get_logger():
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s'))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
+    )
     logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
     return logger
@@ -371,5 +431,5 @@ def main():
         return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

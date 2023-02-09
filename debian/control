@@ -11,4 +11,3 @@ Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}, python3-pyinotify
 Description: nginx config files reloader
  Daemon that installs and reloads nginx configuration
-
