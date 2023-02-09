@@ -26,3 +26,11 @@ class TestFixCustomConfigDirPermissions(TestCase):
             call(self.temp_dir, 0o755),
             call(self.temp_dir + "/some_dir", 0o755),
         ])
+
+    def test_fix_custom_config_dir_permissions_ignores_symlinks(self):
+        other_temp_dir = tempfile.mkdtemp()
+        os.symlink(other_temp_dir, self.temp_dir + "/some_pointing_dir")
+
+        self.tm.fix_custom_config_dir_permissions()
+
+        self.chmod.assert_called_once_with(self.temp_dir, 0o755)
