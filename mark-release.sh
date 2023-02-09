@@ -160,4 +160,3 @@ else
 fi
 
 echo "marked release $VERSION"
-

@@ -1,7 +1,8 @@
-from mock import Mock
-
 import shutil
 from tempfile import mkdtemp
+
+from mock import Mock
+
 from nginx_config_reloader import main
 from tests.testcase import TestCase
 
@@ -10,22 +11,25 @@ class TestMain(TestCase):
     def setUp(self):
         self.source = mkdtemp()
         self.parse_nginx_config_reloader_arguments = self.set_up_patch(
-            'nginx_config_reloader.parse_nginx_config_reloader_arguments'
+            "nginx_config_reloader.parse_nginx_config_reloader_arguments"
         )
         self.parse_nginx_config_reloader_arguments.return_value = Mock(
-            monitor=False, allow_includes=False,
-            nomagentoconfig=False, nocustomconfig=False, watchdir=self.source,
+            monitor=False,
+            allow_includes=False,
+            nomagentoconfig=False,
+            nocustomconfig=False,
+            watchdir=self.source,
             recursivewatch=False,
-            use_systemd=False
+            use_systemd=False,
         )
         self.get_logger = self.set_up_context_manager_patch(
-            'nginx_config_reloader.get_logger'
+            "nginx_config_reloader.get_logger"
         )
         self.wait_loop = self.set_up_context_manager_patch(
-            'nginx_config_reloader.wait_loop'
+            "nginx_config_reloader.wait_loop"
         )
         self.reloader = self.set_up_context_manager_patch(
-            'nginx_config_reloader.NginxConfigReloader'
+            "nginx_config_reloader.NginxConfigReloader"
         )
 
     def tearDown(self):
@@ -77,7 +81,9 @@ class TestMain(TestCase):
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
         )
 
-    def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(self):
+    def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(
+        self,
+    ):
         self.parse_nginx_config_reloader_arguments.return_value.allow_includes = True
         self.parse_nginx_config_reloader_arguments.return_value.monitor = True
 

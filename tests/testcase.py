@@ -1,6 +1,7 @@
-import unittest
 import sys
-from mock import patch, Mock, mock_open
+import unittest
+
+from mock import Mock, mock_open, patch
 
 
 class TestCase(unittest.TestCase):
@@ -19,6 +20,8 @@ class TestCase(unittest.TestCase):
         py_version = sys.version_info
         python2 = py_version < (3, 0)
         if python2:
-            return self.set_up_patch('__builtin__.open', mock_open(read_data=read_value))
+            return self.set_up_patch(
+                "__builtin__.open", mock_open(read_data=read_value)
+            )
         else:
             return self.set_up_patch("builtins.open", mock_open(read_data=read_value))

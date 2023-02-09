@@ -1,14 +1,19 @@
 import signal
-from nginx_config_reloader import NginxConfigReloader
 
+from nginx_config_reloader import NginxConfigReloader
 from tests.testcase import TestCase
 
 
 class TestReloadNginx(TestCase):
     def setUp(self) -> None:
-        self.get_nginx_pid = self.set_up_patch("nginx_config_reloader.NginxConfigReloader.get_nginx_pid", return_value=12345)
+        self.get_nginx_pid = self.set_up_patch(
+            "nginx_config_reloader.NginxConfigReloader.get_nginx_pid",
+            return_value=12345,
+        )
         self.kill = self.set_up_patch("nginx_config_reloader.os.kill")
-        self.check_call = self.set_up_patch("nginx_config_reloader.subprocess.check_call")
+        self.check_call = self.set_up_patch(
+            "nginx_config_reloader.subprocess.check_call"
+        )
         self.reloader = NginxConfigReloader(use_systemd=False)
 
     def test_reload_nginx_uses_signal_process(self) -> None:

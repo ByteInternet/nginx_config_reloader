@@ -7,9 +7,7 @@ from tests.testcase import TestCase
 
 class TestParseNginxConfigReloaderArguments(TestCase):
     def setUp(self):
-        self.parser = self.set_up_patch(
-            'nginx_config_reloader.argparse.ArgumentParser'
-        )
+        self.parser = self.set_up_patch("nginx_config_reloader.argparse.ArgumentParser")
 
     def test_parse_nginx_config_reloader_arguments_instantiates_argparser(self):
         parse_nginx_config_reloader_arguments()
@@ -20,18 +18,42 @@ class TestParseNginxConfigReloaderArguments(TestCase):
         parse_nginx_config_reloader_arguments()
 
         expected_calls = [
-            call('--monitor', '-m', action='store_true',
-                 help='Monitor files on foreground with output'),
-            call('--nomagentoconfig', action='store_true',
-                 help='Disable Magento configuration', default=False),
-            call('--nocustomconfig', action='store_true',
-                 help='Disable copying custom configuration', default=False),
-            call('--watchdir', '-w',
-                help='Set directory to watch', default=nginx_config_reloader.DIR_TO_WATCH),
-            call('--recursivewatch', action='store_true',
-                 help='Enable recursive watching of subdirectories', default=False),
-            call('--use-systemd', action='store_true',
-                 help='Reload nginx using systemd instead of process signal', default=False)
+            call(
+                "--monitor",
+                "-m",
+                action="store_true",
+                help="Monitor files on foreground with output",
+            ),
+            call(
+                "--nomagentoconfig",
+                action="store_true",
+                help="Disable Magento configuration",
+                default=False,
+            ),
+            call(
+                "--nocustomconfig",
+                action="store_true",
+                help="Disable copying custom configuration",
+                default=False,
+            ),
+            call(
+                "--watchdir",
+                "-w",
+                help="Set directory to watch",
+                default=nginx_config_reloader.DIR_TO_WATCH,
+            ),
+            call(
+                "--recursivewatch",
+                action="store_true",
+                help="Enable recursive watching of subdirectories",
+                default=False,
+            ),
+            call(
+                "--use-systemd",
+                action="store_true",
+                help="Reload nginx using systemd instead of process signal",
+                default=False,
+            ),
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls
