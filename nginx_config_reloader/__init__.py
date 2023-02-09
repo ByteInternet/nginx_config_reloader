@@ -200,13 +200,19 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
 
     def fix_custom_config_dir_permissions(self):
         try:
-            os.chmod(self.dir_to_watch, 0o755)
+            subprocess.check_output(
+                ["chmod", "755", self.dir_to_watch],
+                preexec_fn=as_unprivileged_user,
+            )
             for root, dirs, _ in os.walk(self.dir_to_watch):
                 for name in dirs:
                     path = os.path.join(root, name)
                     if os.path.islink(path):
                         continue
-                    os.chmod(path, 0o755)
+                    subprocess.check_output(
+                        ["chmod", "755", path],
+                        preexec_fn=as_unprivileged_user,
+                    )
         except subprocess.CalledProcessError:
             self.logger.info("Failed fixing permissions on watched directory")
 
