@@ -1,4 +1,4 @@
-nginx-config-reloader (20230209.101555) UNRELEASED; urgency=medium
+nginx-config-reloader (20230209.104230) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -55,8 +55,9 @@ nginx-config-reloader (20230209.101555) UNRELEASED; urgency=medium
   * Fix not listening to sub events after subdir is removed and created
   * Ignore symlinks when setting permissions
   * Run chmod as unprivileged user
+  * Apply linting with pre-commit, black, autoflake and isort
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 09 Feb 2023 10:15:56 +0000
+ -- Hypernode team <hypernode@byte.nl>  Thu, 09 Feb 2023 10:42:31 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
