@@ -327,41 +327,31 @@ class TestConfigReloader(TestCase):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('some_file'))
 
-        self.kill.assert_called_once_with(42, signal.SIGHUP)
+        self.assertTrue(tm.dirty)
 
-    def test_that_handle_event_clears_queue(self):
-        notifier = Mock()
-        notifier._eventq = deque(range(10))
-        tm = self._get_nginx_config_reloader_instance(notifier=notifier)
+    def test_that_handle_event_sets_dirty_to_true(self):
+        tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('some_file'))
 
-        self.assertEqual(list(notifier._eventq), [])
-
-    def test_that_handle_event_calls_apply_new_config(self):
-        apply_new_config_mock = self.set_up_patch('nginx_config_reloader.NginxConfigReloader.apply_new_config')
-        notifier = Mock()
-        notifier._eventq = deque(range(10))
-        tm = self._get_nginx_config_reloader_instance(notifier=notifier)
-        tm.handle_event(Event('some_file'))
-
-        apply_new_config_mock.assert_called_once_with()
+        self.assertTrue(tm.dirty)
 
     def test_that_flags_trigger_config_reload(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('magento2.flag'))
-        self.kill.assert_called_once_with(42, signal.SIGHUP)
 
-    def test_that_handle_event_doesnt_apply_config_on_change_of_error_file(self):
+        self.assertTrue(tm.dirty)
+
+    def test_that_handle_event_does_not_need_reload_on_change_of_error_file(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event(nginx_config_reloader.ERROR_FILE))
 
-        self.assertEqual(len(self.kill.mock_calls), 0)
+        self.assertFalse(tm.dirty)
 
-    def test_that_handle_event_doesnt_apply_config_on_change_of_invisible_file(self):
+    def test_that_handle_event_does_not_need_reload_on_change_of_invisible_file(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event('.config.swp'))
 
-        self.assertEqual(len(self.kill.mock_calls), 0)
+        self.assertFalse(tm.dirty)
 
     def test_remove_error_file_unlinks_the_error_file(self):
         mock_os = self.set_up_patch('nginx_config_reloader.os')

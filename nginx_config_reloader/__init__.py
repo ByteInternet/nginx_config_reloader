@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 import argparse
 import fnmatch
+
 import pyinotify
 import subprocess
 import signal
@@ -21,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
-
     def my_init(
             self, logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
             magento2_flag=None, notifier=None, use_systemd=False
@@ -48,6 +48,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.logger.info(self.dir_to_watch)
         self.notifier = notifier
         self.use_systemd = use_systemd
+        self.dirty = False
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -71,20 +72,14 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         """Triggered by inotify when a file is written in the dir"""
         self.handle_event(event)
 
-    def process_IN_IGNORED(self, event):
-        """Triggered by inotify when it stops watching"""
-        raise ListenTargetTerminated
-
     def process_IN_MOVE_SELF(self, event):
         """Triggered by inotify when watched dir is moved"""
         raise ListenTargetTerminated
 
     def handle_event(self, event):
-        self.notifier._eventq.clear()
-
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
-            self.apply_new_config()
+            self.dirty = True
 
     def install_magento_config(self):
         # Check if configs are present
@@ -94,7 +89,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         # Create new temporary filename for new config
         MAGENTO_CONF_NEW = MAGENTO_CONF + '_new'
 
-        # Remove tmp link it it exists (leftover?)
+        # Remove tmp link if it exists (leftover?)
         try:
             os.unlink(MAGENTO_CONF_NEW)
         except OSError:
@@ -247,6 +242,12 @@ class ListenTargetTerminated(BaseException):
     pass
 
 
+def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
+    if nginx_config_reloader.dirty:
+        nginx_config_reloader.apply_new_config()
+        nginx_config_reloader.dirty = False
+
+
 def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_to_watch=DIR_TO_WATCH,
               recursive_watch=False, use_systemd=False):
     """Main event loop
@@ -298,7 +299,7 @@ def wait_loop(logger=None, no_magento_config=False, no_custom_config=False, dir_
         try:
             logger.info("Listening for changes to {}".format(dir_to_watch))
             notifier.coalesce_events()
-            notifier.loop()
+            notifier.loop(callback=lambda _: after_loop(nginx_config_changed_handler))
         except pyinotify.NotifierError as err:
             logger.critical(err)
         except ListenTargetTerminated:

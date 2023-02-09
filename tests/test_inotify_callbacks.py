@@ -86,11 +86,10 @@ class TestInotifyCallbacks(unittest.TestCase):
 
         shutil.rmtree(destdir)
 
-    def test_that_listen_target_terminated_is_raised_if_dir_is_removed(self):
+    def test_that_listen_target_terminated_is_not_raised_if_dir_is_removed(self):
         shutil.rmtree(self.dir)
 
-        with self.assertRaises(nginx_config_reloader.ListenTargetTerminated):
-            self._process_events()
+        self._process_events()
 
 
 class TestInotifyRecursiveCallbacks(TestInotifyCallbacks):
