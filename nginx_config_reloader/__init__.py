@@ -175,7 +175,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             pass
         return removed
 
-    def apply_new_config(self):
+    def apply_new_config(self, force_reload=False):
+        logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
             return False
 
@@ -218,7 +219,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         else:
             self.remove_error_file()
 
-        if self.nats_client:
+        if self.nats_client and not force_reload:
             logger.debug(f"Publishing to NATS: {NATS_SUBJECT} {NATS_RELOAD_BODY!r}")
             self.nats_client.publish(subject=NATS_SUBJECT, payload=NATS_RELOAD_BODY)
         else:
@@ -294,12 +295,10 @@ def construct_message_handler(
     nginx_config_reloader: NginxConfigReloader,
 ) -> Callable[[NATSMessage], None]:
     def message_handler(msg: NATSMessage) -> None:
-        logger.debug(f"Received message: {msg.subject} {msg.payload!r}")
         if msg.subject == NATS_SUBJECT and msg.payload == NATS_RELOAD_BODY:
             logger.debug("NATS message received, reloading config")
-            # Reload the config instead of applying dirty flag to prevent
-            # a loop of publishing and receiving NATS messages
-            nginx_config_reloader.reload_nginx()
+            # Enforce reload without publishing to NATS
+            nginx_config_reloader.apply_new_config(force_reload=True)
 
     return message_handler
 
