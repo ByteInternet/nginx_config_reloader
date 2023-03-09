@@ -13,6 +13,9 @@ NGINX = "/usr/sbin/nginx"
 NGINX_PID_FILE = "/var/run/nginx.pid"
 ERROR_FILE = "nginx_error_output"
 
+NATS_SUBJECT = "nginx-config-reloader"
+NATS_RELOAD_BODY = b"reload"
+
 WATCH_IGNORE_FILES = (
     # glob patterns
     ".*",

@@ -8,11 +8,15 @@ import logging.handlers
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
+import threading
 import time
+from typing import Callable, Optional
 
 import pyinotify
+from pynats import NATSClient, NATSMessage
 
 from nginx_config_reloader.copy_files import safe_copy_files
 from nginx_config_reloader.settings import (
@@ -24,6 +28,8 @@ from nginx_config_reloader.settings import (
     MAGENTO1_CONF,
     MAGENTO2_CONF,
     MAGENTO_CONF,
+    NATS_RELOAD_BODY,
+    NATS_SUBJECT,
     NGINX,
     NGINX_PID_FILE,
     UNPRIVILEGED_GID,
@@ -44,6 +50,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         magento2_flag=None,
         notifier=None,
         use_systemd=False,
+        nats_client: Optional[NATSClient] = None,
     ):
         """Constructor called by ProcessEvent
 
@@ -68,6 +75,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.notifier = notifier
         self.use_systemd = use_systemd
         self.dirty = False
+        self.nats_client = nats_client
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -210,7 +218,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         else:
             self.remove_error_file()
 
-        self.reload_nginx()
+        if self.nats_client:
+            logger.debug(f"Publishing to NATS: {NATS_SUBJECT} {NATS_RELOAD_BODY!r}")
+            self.nats_client.publish(subject=NATS_SUBJECT, payload=NATS_RELOAD_BODY)
+        else:
+            self.reload_nginx()
+
         return True
 
     def fix_custom_config_dir_permissions(self):
@@ -277,6 +290,40 @@ def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
         nginx_config_reloader.dirty = False
 
 
+def construct_message_handler(
+    nginx_config_reloader: NginxConfigReloader,
+) -> Callable[[NATSMessage], None]:
+    def message_handler(msg: NATSMessage) -> None:
+        logger.debug(f"Received message: {msg.subject} {msg.payload!r}")
+        if msg.subject == NATS_SUBJECT and msg.payload == NATS_RELOAD_BODY:
+            logger.debug("NATS message received, reloading config")
+            # Reload the config instead of applying dirty flag to prevent
+            # a loop of publishing and receiving NATS messages
+            nginx_config_reloader.reload_nginx()
+
+    return message_handler
+
+
+def start_message_subscribe_loop(nginx_config_reloader: NginxConfigReloader) -> None:
+    def loop() -> None:
+        if not nginx_config_reloader.nats_client:
+            return
+        while True:
+            try:
+                nginx_config_reloader.nats_client.subscribe(
+                    NATS_SUBJECT,
+                    callback=construct_message_handler(nginx_config_reloader),
+                )
+                nginx_config_reloader.nats_client.wait(count=1)
+            except socket.timeout as e:
+                logger.debug(f"Exception while waiting for NATS messages: {e}")
+                nginx_config_reloader.nats_client.reconnect()
+                nginx_config_reloader.nats_client.ping()
+
+    t = threading.Thread(target=loop)
+    t.start()
+
+
 def wait_loop(
     logger=None,
     no_magento_config=False,
@@ -284,6 +331,7 @@ def wait_loop(
     dir_to_watch=DIR_TO_WATCH,
     recursive_watch=False,
     use_systemd=False,
+    nats_server=None,
 ):
     """Main event loop
 
@@ -305,6 +353,17 @@ def wait_loop(
     wm = pyinotify.WatchManager()
     notifier = pyinotify.Notifier(wm)
 
+    class SymlinkChangedHandler(pyinotify.ProcessEvent):
+        def process_IN_DELETE(self, event):
+            if event.pathname == dir_to_watch:
+                raise ListenTargetTerminated("watched directory was deleted")
+
+    nc = None
+    if nats_server:
+        nc = NATSClient(url=nats_server, socket_timeout=3)
+        nc.connect()
+        nc.ping()
+
     nginx_config_changed_handler = NginxConfigReloader(
         logger=logger,
         no_magento_config=no_magento_config,
@@ -312,12 +371,10 @@ def wait_loop(
         dir_to_watch=dir_to_watch,
         notifier=notifier,
         use_systemd=use_systemd,
+        nats_client=nc,
     )
 
-    class SymlinkChangedHandler(pyinotify.ProcessEvent):
-        def process_IN_DELETE(self, event):
-            if event.pathname == dir_to_watch:
-                raise ListenTargetTerminated("watched directory was deleted")
+    start_message_subscribe_loop(nginx_config_changed_handler)
 
     while True:
         while not os.path.exists(dir_to_watch):
@@ -348,6 +405,8 @@ def wait_loop(
             logger.critical(err)
         except ListenTargetTerminated:
             logger.warning("Configuration dir lost, waiting for it to reappear")
+    if nc:
+        nc.close()
 
 
 def as_unprivileged_user():
@@ -390,6 +449,11 @@ def parse_nginx_config_reloader_arguments():
         help="Reload nginx using systemd instead of process signal",
         default=False,
     )
+    parser.add_argument(
+        "-s",
+        "--nats-server",
+        help=f"NATS server to connect to. Will publish/subscribe to the topic '{NATS_SUBJECT}'. Will not use this if not set.",
+    )
     return parser.parse_args()
 
 
@@ -416,6 +480,7 @@ def main():
             dir_to_watch=args.watchdir,
             recursive_watch=args.recursivewatch,
             use_systemd=args.use_systemd,
+            nats_server=args.nats_server,
         )
         # should never return
         return 1
