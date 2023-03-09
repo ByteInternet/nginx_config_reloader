@@ -21,6 +21,7 @@ class TestMain(TestCase):
             watchdir=self.source,
             recursivewatch=False,
             use_systemd=False,
+            nats_server=None,
         )
         self.get_logger = self.set_up_context_manager_patch(
             "nginx_config_reloader.get_logger"
@@ -79,6 +80,7 @@ class TestMain(TestCase):
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
             recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+            nats_server=self.parse_nginx_config_reloader_arguments.return_value.nats_server,
         )
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(
@@ -96,6 +98,7 @@ class TestMain(TestCase):
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
             recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+            nats_server=self.parse_nginx_config_reloader_arguments.return_value.nats_server,
         )
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
@@ -111,3 +114,34 @@ class TestMain(TestCase):
         ret = main()
 
         self.assertEqual(1, ret)
+
+    def test_main_uses_nats_server_in_monitor_mode_if_specified(self):
+        self.parse_nginx_config_reloader_arguments.return_value.monitor = True
+        self.parse_nginx_config_reloader_arguments.return_value.nats_server = (
+            "nats://localhost:4222"
+        )
+        main()
+
+        self.wait_loop.assert_called_once_with(
+            logger=self.get_logger.return_value,
+            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
+            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
+            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
+            recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
+            use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+            nats_server="nats://localhost:4222",
+        )
+
+    def test_main_does_not_use_nats_server_in_monitor_mode_if_not_specified(self):
+        self.parse_nginx_config_reloader_arguments.return_value.nats_server = (
+            "nats://localhost:4222"
+        )
+        main()
+
+        self.reloader.assert_called_once_with(
+            logger=self.get_logger.return_value,
+            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
+            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
+            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
+            use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+        )
