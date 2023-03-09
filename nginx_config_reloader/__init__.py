@@ -75,6 +75,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.notifier = notifier
         self.use_systemd = use_systemd
         self.dirty = False
+        self.applying = False
         self.nats_client = nats_client
 
     def process_IN_DELETE(self, event):
@@ -106,7 +107,16 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
-            self.dirty = True
+            if self.nats_client:
+                if not self.dirty:
+                    logger.debug(
+                        f"Publishing to NATS: {NATS_SUBJECT} {NATS_RELOAD_BODY!r}"
+                    )
+                    self.nats_client.publish(
+                        subject=NATS_SUBJECT, payload=NATS_RELOAD_BODY
+                    )
+            else:
+                self.dirty = True
 
     def install_magento_config(self):
         # Check if configs are present
@@ -175,7 +185,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             pass
         return removed
 
-    def apply_new_config(self, force_reload=False):
+    def apply_new_config(self):
+        if self.applying:
+            return False
+
+        self.applying = True
         logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
             return False
@@ -219,11 +233,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         else:
             self.remove_error_file()
 
-        if self.nats_client and not force_reload:
-            logger.debug(f"Publishing to NATS: {NATS_SUBJECT} {NATS_RELOAD_BODY!r}")
-            self.nats_client.publish(subject=NATS_SUBJECT, payload=NATS_RELOAD_BODY)
-        else:
-            self.reload_nginx()
+        self.reload_nginx()
 
         return True
 
@@ -287,8 +297,12 @@ class ListenTargetTerminated(BaseException):
 
 def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
     if nginx_config_reloader.dirty:
-        nginx_config_reloader.apply_new_config()
+        try:
+            nginx_config_reloader.apply_new_config()
+        except:
+            pass
         nginx_config_reloader.dirty = False
+        nginx_config_reloader.applying = False
 
 
 def construct_message_handler(
@@ -297,29 +311,34 @@ def construct_message_handler(
     def message_handler(msg: NATSMessage) -> None:
         if msg.subject == NATS_SUBJECT and msg.payload == NATS_RELOAD_BODY:
             logger.debug("NATS message received, reloading config")
-            # Enforce reload without publishing to NATS
-            nginx_config_reloader.apply_new_config(force_reload=True)
+            nginx_config_reloader.dirty = True
+            # Trigger manually to ensure it's running. The `.applying` flag will prevent
+            # concurrent runs.
+            after_loop(nginx_config_reloader)
 
     return message_handler
 
 
 def start_message_subscribe_loop(nginx_config_reloader: NginxConfigReloader) -> None:
-    def loop() -> None:
+    def listen_nats() -> None:
         if not nginx_config_reloader.nats_client:
             return
+        # Initial subscription
+        nginx_config_reloader.nats_client.subscribe(
+            NATS_SUBJECT,
+            callback=construct_message_handler(nginx_config_reloader),
+        )
         while True:
             try:
+                nginx_config_reloader.nats_client.wait(count=1)
+            except socket.timeout as e:
+                nginx_config_reloader.nats_client.reconnect()
                 nginx_config_reloader.nats_client.subscribe(
                     NATS_SUBJECT,
                     callback=construct_message_handler(nginx_config_reloader),
                 )
-                nginx_config_reloader.nats_client.wait(count=1)
-            except socket.timeout as e:
-                logger.debug(f"Exception while waiting for NATS messages: {e}")
-                nginx_config_reloader.nats_client.reconnect()
-                nginx_config_reloader.nats_client.ping()
 
-    t = threading.Thread(target=loop)
+    t = threading.Thread(target=listen_nats)
     t.start()
 
 
