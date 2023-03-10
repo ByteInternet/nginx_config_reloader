@@ -337,6 +337,7 @@ def start_message_subscribe_loop(
             )
             nc.auto_unsubscribe(sub)
 
+            logger.debug(f"Waiting for message on {NATS_SUBJECT}")
             try:
                 nc.wait(count=1)
             except socket.timeout as e:
