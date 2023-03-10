@@ -19,6 +19,7 @@ import pyinotify
 from pynats import NATSClient, NATSMessage
 
 from nginx_config_reloader.copy_files import safe_copy_files
+from nginx_config_reloader.nats import initialize_nats
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
@@ -319,24 +320,27 @@ def construct_message_handler(
     return message_handler
 
 
-def start_message_subscribe_loop(nginx_config_reloader: NginxConfigReloader) -> None:
+def start_message_subscribe_loop(
+    nginx_config_reloader: NginxConfigReloader, nats_server: str
+) -> None:
     def listen_nats() -> None:
-        if not nginx_config_reloader.nats_client:
-            return
-        # Initial subscription
-        nginx_config_reloader.nats_client.subscribe(
-            NATS_SUBJECT,
-            callback=construct_message_handler(nginx_config_reloader),
-        )
         while True:
+            # Create new connection to throw away any old subscriptions.
+            # This is useful when there are many writes queued up, and we
+            # only want to reload once.
+            nc = initialize_nats(nats_server)
+            nginx_config_reloader.nats_client = nc
+            sub = nc.subscribe(
+                NATS_SUBJECT,
+                callback=construct_message_handler(nginx_config_reloader),
+                max_messages=1,
+            )
+            nc.auto_unsubscribe(sub)
+
             try:
-                nginx_config_reloader.nats_client.wait(count=1)
+                nc.wait(count=1)
             except socket.timeout as e:
-                nginx_config_reloader.nats_client.reconnect()
-                nginx_config_reloader.nats_client.subscribe(
-                    NATS_SUBJECT,
-                    callback=construct_message_handler(nginx_config_reloader),
-                )
+                logger.debug(f"NATS timeout: {e}")
 
     t = threading.Thread(target=listen_nats)
     t.start()
@@ -376,12 +380,6 @@ def wait_loop(
             if event.pathname == dir_to_watch:
                 raise ListenTargetTerminated("watched directory was deleted")
 
-    nc = None
-    if nats_server:
-        nc = NATSClient(url=nats_server, socket_timeout=3)
-        nc.connect()
-        nc.ping()
-
     nginx_config_changed_handler = NginxConfigReloader(
         logger=logger,
         no_magento_config=no_magento_config,
@@ -389,10 +387,10 @@ def wait_loop(
         dir_to_watch=dir_to_watch,
         notifier=notifier,
         use_systemd=use_systemd,
-        nats_client=nc,
     )
 
-    start_message_subscribe_loop(nginx_config_changed_handler)
+    if nats_server:
+        start_message_subscribe_loop(nginx_config_changed_handler, nats_server)
 
     while True:
         while not os.path.exists(dir_to_watch):
