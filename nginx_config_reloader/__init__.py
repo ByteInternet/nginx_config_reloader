@@ -8,7 +8,6 @@ import logging.handlers
 import os
 import shutil
 import signal
-import socket
 import subprocess
 import sys
 import threading
@@ -19,7 +18,7 @@ import pyinotify
 from pynats import NATSClient, NATSMessage
 
 from nginx_config_reloader.copy_files import safe_copy_files
-from nginx_config_reloader.nats import initialize_nats
+from nginx_config_reloader.nats import initialize_nats, publish_nats_message
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
@@ -110,12 +109,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
             if self.nats_client:
                 if not self.dirty:
-                    logger.debug(
-                        f"Publishing to NATS: {NATS_SUBJECT} {NATS_RELOAD_BODY!r}"
-                    )
-                    self.nats_client.publish(
-                        subject=NATS_SUBJECT, payload=NATS_RELOAD_BODY
-                    )
+                    self.nats_client = publish_nats_message(self.nats_client)
             else:
                 self.dirty = True
 
@@ -187,10 +181,21 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         return removed
 
     def apply_new_config(self):
+        # Wrapper function to prevent multiple config applications
         if self.applying:
+            logger.debug(f"A config is already being applied. Skipping this one.")
             return False
 
         self.applying = True
+        try:
+            res = self._apply()
+        except Exception as e:
+            logger.exception(e)
+            res = False
+        self.applying = False
+        return res
+
+    def _apply(self):
         logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
             return False
@@ -328,20 +333,24 @@ def start_message_subscribe_loop(
             # Create new connection to throw away any old subscriptions.
             # This is useful when there are many writes queued up, and we
             # only want to reload once.
-            nc = initialize_nats(nats_server)
-            nginx_config_reloader.nats_client = nc
-            sub = nc.subscribe(
-                NATS_SUBJECT,
-                callback=construct_message_handler(nginx_config_reloader),
-                max_messages=1,
-            )
-            nc.auto_unsubscribe(sub)
+            try:
+                nc = initialize_nats(nats_server)
+                nginx_config_reloader.nats_client = nc
+                sub = nc.subscribe(
+                    NATS_SUBJECT,
+                    callback=construct_message_handler(nginx_config_reloader),
+                    max_messages=1,
+                )
+                nc.auto_unsubscribe(sub)
+            except Exception as e:
+                logger.debug(f"Couldn't make NATS client: {e}")
+                continue
 
             logger.debug(f"Waiting for message on {NATS_SUBJECT}")
             try:
                 nc.wait(count=1)
-            except socket.timeout as e:
-                logger.debug(f"NATS timeout: {e}")
+            except Exception as e:
+                logger.debug(f"NATS error: {e}")
 
     t = threading.Thread(target=listen_nats)
     t.start()
