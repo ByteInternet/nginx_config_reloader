@@ -54,6 +54,11 @@ class TestParseNginxConfigReloaderArguments(TestCase):
                 help="Reload nginx using systemd instead of process signal",
                 default=False,
             ),
+            call(
+                "-s",
+                "--nats-server",
+                help="NATS server to connect to. Will publish/subscribe to the topic 'nginx-config-reloader'. Will not use this if not set.",
+            ),
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls

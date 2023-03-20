@@ -6,3 +6,4 @@ pytest-xdist==3.2.0
 tox==4.4.5
 black==23.1.0
 pre-commit==2.21.0
+nats-python==0.8.0
