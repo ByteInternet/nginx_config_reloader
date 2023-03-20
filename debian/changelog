@@ -1,4 +1,4 @@
-nginx-config-reloader (20230209.104230) UNRELEASED; urgency=medium
+nginx-config-reloader (20230320.095135) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -57,7 +57,17 @@ nginx-config-reloader (20230209.104230) UNRELEASED; urgency=medium
   * Run chmod as unprivileged user
   * Apply linting with pre-commit, black, autoflake and isort
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 09 Feb 2023 10:42:31 +0000
+  [ Alexander Grooff ]
+  * feat: reload through pubsub via NATS
+  * chore: pin nats version
+  * test: nats server arguments
+  * fix: enforce apply config instead of reload
+  * fix: prevent concurrent runs
+  * feat: reload once for all queued messages
+  * chore: add NATS init logging
+  * fix: fix initial applying state
+
+ -- Hypernode team <hypernode@byte.nl>  Mon, 20 Mar 2023 09:51:37 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
