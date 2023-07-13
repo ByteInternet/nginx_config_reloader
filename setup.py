@@ -12,6 +12,6 @@ setup(
     entry_points={
         "console_scripts": ["nginx_config_reloader = nginx_config_reloader:main"]
     },
-    install_requires=["pyinotify>=0.9.2", "nats-python==0.8.0"],
+    install_requires=["pyinotify>=0.9.2", "nats-python"],
     test_suite="tests",
 )
