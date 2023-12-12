@@ -2,23 +2,23 @@
 from __future__ import absolute_import
 
 import argparse
+import asyncio
 import fnmatch
 import logging
 import logging.handlers
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
 import time
-from typing import Callable, Optional
 
 import pyinotify
-from pynats import NATSClient, NATSMessage
 
 from nginx_config_reloader.copy_files import safe_copy_files
-from nginx_config_reloader.nats import initialize_nats, publish_nats_message
+from nginx_config_reloader.nats_client import get_nats_client
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
@@ -50,7 +50,6 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         magento2_flag=None,
         notifier=None,
         use_systemd=False,
-        nats_client: Optional[NATSClient] = None,
     ):
         """Constructor called by ProcessEvent
 
@@ -75,8 +74,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.notifier = notifier
         self.use_systemd = use_systemd
         self.dirty = False
+        self.dirty_cluster = False
         self.applying = False
-        self.nats_client = nats_client
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -107,11 +106,8 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
-            if self.nats_client:
-                if not self.dirty:
-                    self.nats_client = publish_nats_message(self.nats_client)
-            else:
-                self.dirty = True
+            self.dirty = True
+            self.dirty_cluster = True
 
     def install_magento_config(self):
         # Check if configs are present
@@ -311,49 +307,25 @@ def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
         nginx_config_reloader.applying = False
 
 
-def construct_message_handler(
-    nginx_config_reloader: NginxConfigReloader,
-) -> Callable[[NATSMessage], None]:
-    def message_handler(msg: NATSMessage) -> None:
-        if msg.subject == NATS_SUBJECT and msg.payload == NATS_RELOAD_BODY:
-            logger.debug("NATS message received, reloading config")
-            nginx_config_reloader.dirty = True
-            # Trigger manually to ensure it's running. The `.applying` flag will prevent
-            # concurrent runs.
-            after_loop(nginx_config_reloader)
-
-    return message_handler
-
-
-def start_message_subscribe_loop(
-    nginx_config_reloader: NginxConfigReloader, nats_server: str
-) -> None:
-    def listen_nats() -> None:
+def watch_for_changes(nginx_config_reloader: NginxConfigReloader, nats_server: str):
+    async def listen() -> None:
+        client = await get_nats_client(nats_server)
         while True:
-            # Create new connection to throw away any old subscriptions.
-            # This is useful when there are many writes queued up, and we
-            # only want to reload once.
-            try:
-                nc = initialize_nats(nats_server)
-                nginx_config_reloader.nats_client = nc
-                sub = nc.subscribe(
-                    NATS_SUBJECT,
-                    callback=construct_message_handler(nginx_config_reloader),
-                    max_messages=1,
-                )
-                nc.auto_unsubscribe(sub)
-            except Exception as e:
-                logger.debug(f"Couldn't make NATS client: {e}")
-                continue
+            # Dirty flag is only set for local changes, not for NATS changes
+            # So if nginx_config_reloader
+            if nginx_config_reloader.dirty_cluster:
+                nginx_config_reloader.dirty_cluster = False
+                try:
+                    await client.publish(
+                        NATS_SUBJECT,
+                        NATS_RELOAD_BODY,
+                        headers={"From": socket.gethostname()},
+                    )
+                except Exception as e:
+                    logger.error(f"Error while publishing event: {e}")
+            await asyncio.sleep(1)
 
-            logger.debug(f"Waiting for message on {NATS_SUBJECT}")
-            try:
-                nc.wait(count=1)
-            except Exception as e:
-                logger.debug(f"NATS error: {e}")
-
-    t = threading.Thread(target=listen_nats)
-    t.start()
+    asyncio.run(listen())
 
 
 def wait_loop(
@@ -373,11 +345,13 @@ def wait_loop(
     renamed or removed, the inotify-handler raises an exception to break out of the
     inner loop and we're back here in the outer loop.
 
-    :param obj logger: The logger object
+    :param logging.Logger logger: The logger object
     :param bool no_magento_config: True if we should not install Magento configuration
     :param bool no_custom_config: True if we should not copy custom configuration
     :param str dir_to_watch: The directory to watch
     :param bool recursive_watch: True if we should watch the dir recursively
+    :param use_systemd: True if we should reload nginx using systemd instead of process signal
+    :param nats_server: NATS server to connect to. If not set, NATS will not be used.
     :return None:
     """
     dir_to_watch = os.path.abspath(dir_to_watch)
@@ -400,7 +374,11 @@ def wait_loop(
     )
 
     if nats_server:
-        start_message_subscribe_loop(nginx_config_changed_handler, nats_server)
+        nats_thread = threading.Thread(
+            target=watch_for_changes,
+            args=(nginx_config_changed_handler, nats_server),
+        )
+        nats_thread.start()
 
     while True:
         while not os.path.exists(dir_to_watch):
@@ -431,8 +409,6 @@ def wait_loop(
             logger.critical(err)
         except ListenTargetTerminated:
             logger.warning("Configuration dir lost, waiting for it to reappear")
-    if nc:
-        nc.close()
 
 
 def as_unprivileged_user():
