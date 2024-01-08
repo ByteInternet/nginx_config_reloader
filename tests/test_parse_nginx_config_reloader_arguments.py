@@ -55,9 +55,10 @@ class TestParseNginxConfigReloaderArguments(TestCase):
                 default=False,
             ),
             call(
-                "-s",
-                "--nats-server",
-                help="NATS server to connect to. Will publish/subscribe to the topic 'nginx-config-reloader'. Will not use this if not set.",
+                "--no-dbus",
+                action="store_true",
+                help="Disable DBus interface",
+                default=False,
             ),
         ]
         self.assertEqual(

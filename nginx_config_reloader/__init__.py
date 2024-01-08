@@ -12,13 +12,15 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Callable, Optional
+from typing import Optional
 
 import pyinotify
-from pynats import NATSClient, NATSMessage
+from dasbus.loop import EventLoop
+from dasbus.signal import Signal
 
 from nginx_config_reloader.copy_files import safe_copy_files
-from nginx_config_reloader.nats import initialize_nats, publish_nats_message
+from nginx_config_reloader.dbus.common import NGINX_CONFIG_RELOADER, SYSTEM_BUS
+from nginx_config_reloader.dbus.server import NginxConfigReloaderInterface
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
@@ -28,8 +30,6 @@ from nginx_config_reloader.settings import (
     MAGENTO1_CONF,
     MAGENTO2_CONF,
     MAGENTO_CONF,
-    NATS_RELOAD_BODY,
-    NATS_SUBJECT,
     NGINX,
     NGINX_PID_FILE,
     UNPRIVILEGED_GID,
@@ -38,6 +38,7 @@ from nginx_config_reloader.settings import (
 )
 
 logger = logging.getLogger(__name__)
+dbus_loop: Optional[EventLoop] = None
 
 
 class NginxConfigReloader(pyinotify.ProcessEvent):
@@ -50,11 +51,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         magento2_flag=None,
         notifier=None,
         use_systemd=False,
-        nats_client: Optional[NATSClient] = None,
     ):
         """Constructor called by ProcessEvent
 
-        :param obj logger: The logger object
+        :param logging.Logger logger: The logger object
         :param bool no_magento_config: True if we should not install Magento configuration
         :param bool no_custom_config: True if we should not copy custom configuration
         :param str dir_to_watch: The directory to watch
@@ -76,7 +76,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         self.use_systemd = use_systemd
         self.dirty = False
         self.applying = False
-        self.nats_client = nats_client
+        self._on_config_reload = Signal()
 
     def process_IN_DELETE(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -107,11 +107,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
     def handle_event(self, event):
         if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
             self.logger.info("{} detected on {}.".format(event.maskname, event.name))
-            if self.nats_client:
-                if not self.dirty:
-                    self.nats_client = publish_nats_message(self.nats_client)
-            else:
-                self.dirty = True
+            self.dirty = True
 
     def install_magento_config(self):
         # Check if configs are present
@@ -296,6 +292,16 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         with open(os.path.join(self.dir_to_watch, ERROR_FILE), "w") as f:
             f.write(error)
 
+    @property
+    def reloaded(self):
+        """Signal for the reload event."""
+        return self._on_config_reload
+
+    def reload(self, send_signal=True):
+        self.apply_new_config()
+        if send_signal:
+            self._on_config_reload.emit()
+
 
 class ListenTargetTerminated(BaseException):
     pass
@@ -304,56 +310,16 @@ class ListenTargetTerminated(BaseException):
 def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
     if nginx_config_reloader.dirty:
         try:
-            nginx_config_reloader.apply_new_config()
+            nginx_config_reloader.reload()
         except:
             pass
         nginx_config_reloader.dirty = False
         nginx_config_reloader.applying = False
 
 
-def construct_message_handler(
-    nginx_config_reloader: NginxConfigReloader,
-) -> Callable[[NATSMessage], None]:
-    def message_handler(msg: NATSMessage) -> None:
-        if msg.subject == NATS_SUBJECT and msg.payload == NATS_RELOAD_BODY:
-            logger.debug("NATS message received, reloading config")
-            nginx_config_reloader.dirty = True
-            # Trigger manually to ensure it's running. The `.applying` flag will prevent
-            # concurrent runs.
-            after_loop(nginx_config_reloader)
-
-    return message_handler
-
-
-def start_message_subscribe_loop(
-    nginx_config_reloader: NginxConfigReloader, nats_server: str
-) -> None:
-    def listen_nats() -> None:
-        while True:
-            # Create new connection to throw away any old subscriptions.
-            # This is useful when there are many writes queued up, and we
-            # only want to reload once.
-            try:
-                nc = initialize_nats(nats_server)
-                nginx_config_reloader.nats_client = nc
-                sub = nc.subscribe(
-                    NATS_SUBJECT,
-                    callback=construct_message_handler(nginx_config_reloader),
-                    max_messages=1,
-                )
-                nc.auto_unsubscribe(sub)
-            except Exception as e:
-                logger.debug(f"Couldn't make NATS client: {e}")
-                continue
-
-            logger.debug(f"Waiting for message on {NATS_SUBJECT}")
-            try:
-                nc.wait(count=1)
-            except Exception as e:
-                logger.debug(f"NATS error: {e}")
-
-    t = threading.Thread(target=listen_nats)
-    t.start()
+def dbus_event_loop():
+    dbus_loop = EventLoop()
+    dbus_loop.run()
 
 
 def wait_loop(
@@ -363,7 +329,7 @@ def wait_loop(
     dir_to_watch=DIR_TO_WATCH,
     recursive_watch=False,
     use_systemd=False,
-    nats_server=None,
+    no_dbus=False,
 ):
     """Main event loop
 
@@ -373,11 +339,13 @@ def wait_loop(
     renamed or removed, the inotify-handler raises an exception to break out of the
     inner loop and we're back here in the outer loop.
 
-    :param obj logger: The logger object
+    :param logging.Logger logger: The logger object
     :param bool no_magento_config: True if we should not install Magento configuration
     :param bool no_custom_config: True if we should not copy custom configuration
     :param str dir_to_watch: The directory to watch
     :param bool recursive_watch: True if we should watch the dir recursively
+    :param use_systemd: True if we should reload nginx using systemd instead of process signal
+    :param bool no_dbus: True if we should not use DBus
     :return None:
     """
     dir_to_watch = os.path.abspath(dir_to_watch)
@@ -399,8 +367,14 @@ def wait_loop(
         use_systemd=use_systemd,
     )
 
-    if nats_server:
-        start_message_subscribe_loop(nginx_config_changed_handler, nats_server)
+    if not no_dbus:
+        SYSTEM_BUS.publish_object(
+            NGINX_CONFIG_RELOADER.object_path,
+            NginxConfigReloaderInterface(nginx_config_changed_handler),
+        )
+        SYSTEM_BUS.register_service(NGINX_CONFIG_RELOADER.service_name)
+        dbus_thread = threading.Thread(target=dbus_event_loop)
+        dbus_thread.start()
 
     while True:
         while not os.path.exists(dir_to_watch):
@@ -421,7 +395,7 @@ def wait_loop(
         )
 
         # Install initial configuration
-        nginx_config_changed_handler.apply_new_config()
+        nginx_config_changed_handler.reload(send_signal=False)
 
         try:
             logger.info("Listening for changes to {}".format(dir_to_watch))
@@ -431,8 +405,6 @@ def wait_loop(
             logger.critical(err)
         except ListenTargetTerminated:
             logger.warning("Configuration dir lost, waiting for it to reappear")
-    if nc:
-        nc.close()
 
 
 def as_unprivileged_user():
@@ -476,9 +448,10 @@ def parse_nginx_config_reloader_arguments():
         default=False,
     )
     parser.add_argument(
-        "-s",
-        "--nats-server",
-        help=f"NATS server to connect to. Will publish/subscribe to the topic '{NATS_SUBJECT}'. Will not use this if not set.",
+        "--no-dbus",
+        action="store_true",
+        help="Disable DBus interface",
+        default=False,
     )
     return parser.parse_args()
 
@@ -506,7 +479,7 @@ def main():
             dir_to_watch=args.watchdir,
             recursive_watch=args.recursivewatch,
             use_systemd=args.use_systemd,
-            nats_server=args.nats_server,
+            no_dbus=args.no_dbus,
         )
         # should never return
         return 1

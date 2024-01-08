@@ -6,4 +6,6 @@ pytest-xdist==3.2.0
 tox==4.4.5
 black==23.1.0
 pre-commit==2.21.0
--e git+https://github.com/ByteInternet/nats-python.git@755ce98487ad15bec2889365d8b7caa4b2455e84#egg=nats-python
+pygobject
+pygobject-stubs
+dasbus==1.7
