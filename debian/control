@@ -8,6 +8,6 @@ X-Python3-Version: >= 3.5
 
 Package: nginx-config-reloader
 Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}, python3-pyinotify
+Depends: ${python3:Depends}, ${misc:Depends}, python3-pyinotify, python3-dasbus
 Description: nginx config files reloader
  Daemon that installs and reloads nginx configuration
