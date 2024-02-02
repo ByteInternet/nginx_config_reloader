@@ -18,4 +18,4 @@ class NginxConfigReloaderInterface(InterfaceTemplate):
     def Reload(self):
         """Mark the last reload at current time."""
         # send_signal=False because we don't want to emit the signal
-        self.implementation.apply_new_config(send_signal=False)
+        self.implementation.reload(send_signal=False)
