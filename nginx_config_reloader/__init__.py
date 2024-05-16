@@ -36,6 +36,7 @@ from nginx_config_reloader.settings import (
     UNPRIVILEGED_UID,
     WATCH_IGNORE_FILES,
 )
+from nginx_config_reloader.utils import directory_is_unmounted
 
 logger = logging.getLogger(__name__)
 dbus_loop: Optional[EventLoop] = None
@@ -298,6 +299,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         return self._on_config_reload
 
     def reload(self, send_signal=True):
+        if directory_is_unmounted(self.dir_to_watch):
+            self.logger.warning(
+                f"Directory {self.dir_to_watch} is unmounted, not reloading!"
+            )
+            return
+
         self.apply_new_config()
         if send_signal:
             self._on_config_reload.emit()
