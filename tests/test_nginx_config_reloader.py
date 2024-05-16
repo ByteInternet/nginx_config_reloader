@@ -350,6 +350,66 @@ class TestConfigReloader(TestCase):
 
         self.assertFalse(self.fix_custom_config_dir_permissions.called)
 
+    def test_that_reload_calls_apply_new_config(self):
+        directory_is_unmounted = self.set_up_patch(
+            "nginx_config_reloader.directory_is_unmounted",
+            return_value=False,
+        )
+        apply_new_config = self.set_up_patch(
+            "nginx_config_reloader.NginxConfigReloader.apply_new_config"
+        )
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.reload()
+
+        directory_is_unmounted.assert_called_once_with(
+            nginx_config_reloader.DIR_TO_WATCH
+        )
+        apply_new_config.assert_called_once_with()
+
+    def test_that_reload_does_not_apply_new_config_if_directory_is_unmounted(self):
+        directory_is_unmounted = self.set_up_patch(
+            "nginx_config_reloader.directory_is_unmounted",
+            return_value=True,
+        )
+        signal = Mock()
+        self.set_up_patch(
+            "nginx_config_reloader.Signal",
+            return_value=signal,
+        )
+        apply_new_config = self.set_up_patch(
+            "nginx_config_reloader.NginxConfigReloader.apply_new_config"
+        )
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.reload()
+
+        directory_is_unmounted.assert_called_once_with(
+            nginx_config_reloader.DIR_TO_WATCH
+        )
+        apply_new_config.assert_not_called()
+        signal.emit.assert_not_called()
+
+    def test_that_reload_does_not_send_signal_if_specified(self):
+        self.set_up_patch(
+            "nginx_config_reloader.directory_is_unmounted",
+            return_value=False,
+        )
+        signal = Mock()
+        self.set_up_patch(
+            "nginx_config_reloader.Signal",
+            return_value=signal,
+        )
+        apply_new_config = self.set_up_patch(
+            "nginx_config_reloader.NginxConfigReloader.apply_new_config"
+        )
+
+        tm = self._get_nginx_config_reloader_instance()
+        tm.reload(send_signal=False)
+
+        apply_new_config.assert_called_once_with()
+        signal.emit.assert_not_called()
+
     def test_that_error_file_is_not_moved_to_dest_dir(self):
         self._write_file(self._source(nginx_config_reloader.ERROR_FILE), "some error")
 
