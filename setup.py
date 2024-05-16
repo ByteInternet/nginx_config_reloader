@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="nginx_config_reloader",
-    version="20240213.142408",
+    version="20240516.153044",
     packages=find_packages(exclude=["test*"]),
     url="https://github.com/ByteInternet/nginx_config_reloader",
     license="",

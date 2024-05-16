@@ -1,4 +1,4 @@
-nginx-config-reloader (20240213.142408) UNRELEASED; urgency=medium
+nginx-config-reloader (20240516.153044) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -72,8 +72,9 @@ nginx-config-reloader (20240213.142408) UNRELEASED; urgency=medium
   * Replace NATS with dbus
   * dbus: Fix reload command
   * debian: Remove dh-systemd build dep
+  * reloader: Do not apply config if target dir is unmounted
 
- -- Hypernode team <hypernode@byte.nl>  Tue, 13 Feb 2024 14:24:08 +0000
+ -- Hypernode team <hypernode@byte.nl>  Thu, 16 May 2024 15:30:44 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
