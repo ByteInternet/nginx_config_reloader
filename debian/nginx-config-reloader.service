@@ -1,5 +1,6 @@
 [Unit]
 Description=Daemon that detects, checks and installs user provided nginx configuration files
+After=remote-fs.target
 
 [Service]
 ExecStart=/usr/bin/nginx_config_reloader --monitor
