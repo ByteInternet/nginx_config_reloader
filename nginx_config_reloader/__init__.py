@@ -36,7 +36,7 @@ from nginx_config_reloader.settings import (
     UNPRIVILEGED_UID,
     WATCH_IGNORE_FILES,
 )
-from nginx_config_reloader.utils import directory_is_unmounted
+from nginx_config_reloader.utils import directory_is_unmounted, can_write_to_main_config_dir
 
 logger = logging.getLogger(__name__)
 dbus_loop: Optional[EventLoop] = None
@@ -195,6 +195,10 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
     def _apply(self):
         logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
+            return False
+        
+        if not can_write_to_main_config_dir():
+            self.logger.error("No write permissions to main nginx config directory, please check your permissions.")
             return False
 
         if not self.no_magento_config:
