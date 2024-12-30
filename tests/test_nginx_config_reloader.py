@@ -26,10 +26,12 @@ class TestConfigReloader(TestCase):
         self.source = mkdtemp()
         self.dest = mkdtemp()
         self.backup = mkdtemp()
+        self.main = mkdtemp()
         _, self.mag_conf = mkstemp(text=True)
         _, self.mag1_conf = mkstemp(text=True)
         _, self.mag2_conf = mkstemp(text=True)
 
+        nginx_config_reloader.MAIN_CONFIG_DIR = self.main
         nginx_config_reloader.DIR_TO_WATCH = self.source
         nginx_config_reloader.CUSTOM_CONFIG_DIR = self.dest
         nginx_config_reloader.BACKUP_CONFIG_DIR = self.backup
@@ -49,6 +51,7 @@ class TestConfigReloader(TestCase):
         shutil.rmtree(self.source, ignore_errors=True)
         shutil.rmtree(self.dest, ignore_errors=True)
         shutil.rmtree(self.backup, ignore_errors=True)
+        shutil.rmtree(self.main, ignore_errors=True)
         for f in [self.mag_conf, self.mag1_conf, self.mag2_conf]:
             try:
                 os.unlink(f)
@@ -645,6 +648,22 @@ class TestConfigReloader(TestCase):
             os.stat(os.path.join(self.dest, "new_dir/server.test.cnf")).st_mode
             & stat.S_IXOTH
         )
+
+    def test_no_permission_to_main_config_dir(self):
+        os.chmod(self.main, 0o400)  # Read-only
+
+        tm = self._get_nginx_config_reloader_instance()
+        try:
+            with self.assertLogs('root', level='ERROR') as cm:
+                result = tm.apply_new_config()
+                self.assertFalse(result)
+                self.assertTrue(
+                    any("No write permissions to main nginx config directory" in message for message in cm.output),
+                    "Expected error message not found in logs."
+                )
+        finally:
+            # Restore permissions after test
+            os.chmod(self.main, 0o700)
 
     def _get_nginx_config_reloader_instance(
         self,

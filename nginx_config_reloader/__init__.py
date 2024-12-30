@@ -24,6 +24,7 @@ from nginx_config_reloader.dbus.server import NginxConfigReloaderInterface
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
+    MAIN_CONFIG_DIR,
     DIR_TO_WATCH,
     ERROR_FILE,
     FORBIDDEN_CONFIG_REGEX,
@@ -36,7 +37,7 @@ from nginx_config_reloader.settings import (
     UNPRIVILEGED_UID,
     WATCH_IGNORE_FILES,
 )
-from nginx_config_reloader.utils import directory_is_unmounted, can_write_to_main_config_dir
+from nginx_config_reloader.utils import directory_is_unmounted
 
 logger = logging.getLogger(__name__)
 dbus_loop: Optional[EventLoop] = None
@@ -133,6 +134,9 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         # Move temporary symlink to actual location, overwriting existing link or file
         os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
 
+    def check_can_write_to_main_config_dir(self):
+        return os.access(MAIN_CONFIG_DIR, os.W_OK)
+
     def check_no_forbidden_config_directives_are_present(self):
         """
         Loop over the :FORBIDDEN_CONFIG_REGEX: to check if nginx config directory contains forbidden configuration
@@ -197,7 +201,7 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if self.check_no_forbidden_config_directives_are_present():
             return False
         
-        if not can_write_to_main_config_dir():
+        if not self.check_can_write_to_main_config_dir():
             self.logger.error("No write permissions to main nginx config directory, please check your permissions.")
             return False
 
