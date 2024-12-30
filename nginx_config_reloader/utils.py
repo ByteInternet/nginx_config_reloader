@@ -1,6 +1,6 @@
 import json
 import subprocess
-import os
+
 
 def directory_is_unmounted(path):
     output = subprocess.check_output(
