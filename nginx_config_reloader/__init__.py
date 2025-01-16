@@ -24,13 +24,13 @@ from nginx_config_reloader.dbus.server import NginxConfigReloaderInterface
 from nginx_config_reloader.settings import (
     BACKUP_CONFIG_DIR,
     CUSTOM_CONFIG_DIR,
-    MAIN_CONFIG_DIR,
     DIR_TO_WATCH,
     ERROR_FILE,
     FORBIDDEN_CONFIG_REGEX,
     MAGENTO1_CONF,
     MAGENTO2_CONF,
     MAGENTO_CONF,
+    MAIN_CONFIG_DIR,
     NGINX,
     NGINX_PID_FILE,
     UNPRIVILEGED_GID,
@@ -200,9 +200,11 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
             return False
-        
+
         if not self.check_can_write_to_main_config_dir():
-            self.logger.error("No write permissions to main nginx config directory, please check your permissions.")
+            self.logger.error(
+                "No write permissions to main nginx config directory, please check your permissions."
+            )
             return False
 
         if not self.no_magento_config:
