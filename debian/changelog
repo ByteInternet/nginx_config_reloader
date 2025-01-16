@@ -1,4 +1,4 @@
-nginx-config-reloader (20240524.073029) UNRELEASED; urgency=medium
+nginx-config-reloader (20250116.142631) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -75,7 +75,10 @@ nginx-config-reloader (20240524.073029) UNRELEASED; urgency=medium
   * reloader: Do not apply config if target dir is unmounted
   * debian/service: Start after remote-fs.target
 
- -- Hypernode team <hypernode@byte.nl>  Fri, 24 May 2024 07:30:30 +0000
+  [ Jonathan ]
+  * Fix CI to support py 3.7 again (#63)
+
+ -- Hypernode team <hypernode@byte.nl>  Thu, 16 Jan 2025 14:26:31 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
