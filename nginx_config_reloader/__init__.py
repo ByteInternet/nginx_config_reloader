@@ -12,13 +12,13 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 from dasbus.loop import EventLoop
 from dasbus.signal import Signal
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from nginx_config_reloader.copy_files import safe_copy_files
 from nginx_config_reloader.dbus.common import NGINX_CONFIG_RELOADER, SYSTEM_BUS
@@ -106,8 +106,10 @@ class NginxConfigReloader(FileSystemEventHandler):
 
     def on_any_event(self, event):
         """Triggered by inotify when watched dir is moved or deleted"""
-        if event.is_directory and event.event_type in ['moved', 'deleted']:
-            self.logger.warning(f"Directory {event.src_path} has been {event.event_type}.")
+        if event.is_directory and event.event_type in ["moved", "deleted"]:
+            self.logger.warning(
+                f"Directory {event.src_path} has been {event.event_type}."
+            )
             raise ListenTargetTerminated
 
     def handle_event(self, event):
@@ -118,13 +120,15 @@ class NginxConfigReloader(FileSystemEventHandler):
             or file_path.name.endswith("~")
         ):
             return
-        
-        if (event.is_directory):
+
+        if event.is_directory:
             return
-        
+
         basename = os.path.basename(event.src_path)
         if not any(fnmatch.fnmatch(basename, pat) for pat in WATCH_IGNORE_FILES):
-            self.logger.debug(f"{event.event_type.upper()} detected on {event.src_path}")
+            self.logger.debug(
+                f"{event.event_type.upper()} detected on {event.src_path}"
+            )
             self.dirty = True
             # Additional handling if necessary
 
@@ -339,10 +343,7 @@ class NginxConfigReloader(FileSystemEventHandler):
     def start_observer(self):
         self.observer = Observer()
         self.observer.schedule(
-            self,
-            self.dir_to_watch,
-            recursive=True,
-            follow_symlink=True
+            self, self.dir_to_watch, recursive=True, follow_symlink=True
         )
         self.observer.start()
 
@@ -350,6 +351,7 @@ class NginxConfigReloader(FileSystemEventHandler):
         self.observer.stop()
         self.observer.join()
         sys.exit()
+
 
 class ListenTargetTerminated(BaseException):
     pass
@@ -421,7 +423,6 @@ def wait_loop(
         )
         time.sleep(5)
 
-
     try:
         logger.info(f"Listening for changes to {dir_to_watch}")
         nginx_config_changed_handler.start_observer()
@@ -435,7 +436,6 @@ def wait_loop(
     except KeyboardInterrupt:
         logger.info("Shutting down observer.")
         nginx_config_changed_handler.stop_observer()
-        
 
 
 def as_unprivileged_user():
