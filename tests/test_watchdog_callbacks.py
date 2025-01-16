@@ -4,15 +4,7 @@ import unittest
 from tempfile import NamedTemporaryFile, mkdtemp
 
 import mock
-from watchdog.events import (
-    DirCreatedEvent,
-    DirDeletedEvent,
-    DirMovedEvent,
-    FileCreatedEvent,
-    FileDeletedEvent,
-    FileModifiedEvent,
-    FileMovedEvent,
-)
+from watchdog.events import DirCreatedEvent, FileDeletedEvent, FileMovedEvent
 
 import nginx_config_reloader
 
@@ -50,9 +42,7 @@ class TestWatchdogCallbacks(unittest.TestCase):
 
     def test_that_handle_event_is_called_when_a_file_is_moved_in(self):
         with NamedTemporaryFile(delete=False) as f:
-            event = FileMovedEvent(
-                f.name, os.path.join(self.dir, "newfile")
-            )
+            event = FileMovedEvent(f.name, os.path.join(self.dir, "newfile"))
             self.handler.on_moved(event)
 
             self.assertEqual(len(self.handle_event.mock_calls), 1)
@@ -78,6 +68,7 @@ class TestWatchdogCallbacks(unittest.TestCase):
 
         self.assertGreaterEqual(len(self.handle_event.mock_calls), 1)
 
+
 class TestWatchdogRecursiveCallbacks(TestWatchdogCallbacks):
     # Run all callback tests on a subdir
     def setUp(self):
@@ -95,4 +86,4 @@ class TestWatchdogRecursiveCallbacks(TestWatchdogCallbacks):
         self.handler.observer = self.observer
 
     def tearDown(self):
-        shutil.rmtree(self.rootdir, ignore_errors=True) 
+        shutil.rmtree(self.rootdir, ignore_errors=True)
