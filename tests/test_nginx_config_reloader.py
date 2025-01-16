@@ -699,4 +699,6 @@ class TestConfigReloader(TestCase):
 class Event:
     def __init__(self, name):
         self.name = name
-        self.maskname = "IN_CLOSE_WRITE"
+        self.event_type = "modified"
+        self.src_path = name
+        self.is_directory = False
