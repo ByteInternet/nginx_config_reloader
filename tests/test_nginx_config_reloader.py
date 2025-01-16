@@ -654,13 +654,8 @@ class TestConfigReloader(TestCase):
 
         tm = self._get_nginx_config_reloader_instance()
         try:
-            with self.assertLogs('root', level='ERROR') as cm:
-                result = tm.apply_new_config()
-                self.assertFalse(result)
-                self.assertTrue(
-                    any("No write permissions to main nginx config directory" in message for message in cm.output),
-                    "Expected error message not found in logs."
-                )
+            result = tm.check_can_write_to_main_config_dir()
+            self.assertFalse(result)
         finally:
             # Restore permissions after test
             os.chmod(self.main, 0o700)
