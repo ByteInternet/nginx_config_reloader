@@ -30,6 +30,7 @@ from nginx_config_reloader.settings import (
     MAGENTO1_CONF,
     MAGENTO2_CONF,
     MAGENTO_CONF,
+    MAIN_CONFIG_DIR,
     NGINX,
     NGINX_PID_FILE,
     UNPRIVILEGED_GID,
@@ -133,6 +134,9 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         # Move temporary symlink to actual location, overwriting existing link or file
         os.rename(MAGENTO_CONF_NEW, MAGENTO_CONF)
 
+    def check_can_write_to_main_config_dir(self):
+        return os.access(MAIN_CONFIG_DIR, os.W_OK)
+
     def check_no_forbidden_config_directives_are_present(self):
         """
         Loop over the :FORBIDDEN_CONFIG_REGEX: to check if nginx config directory contains forbidden configuration
@@ -195,6 +199,12 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
     def _apply(self):
         logger.debug("Applying new config")
         if self.check_no_forbidden_config_directives_are_present():
+            return False
+
+        if not self.check_can_write_to_main_config_dir():
+            self.logger.error(
+                "No write permissions to main nginx config directory, please check your permissions."
+            )
             return False
 
         if not self.no_magento_config:
