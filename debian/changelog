@@ -1,4 +1,4 @@
-nginx-config-reloader (20250116.142631) UNRELEASED; urgency=medium
+nginx-config-reloader (20250117.131018) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -77,8 +77,9 @@ nginx-config-reloader (20250116.142631) UNRELEASED; urgency=medium
 
   [ Jonathan ]
   * Fix CI to support py 3.7 again (#63)
+  * Add permission error when user cannot write to /etc/nginx folder (#62)
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 16 Jan 2025 14:26:31 +0000
+ -- Hypernode team <hypernode@byte.nl>  Fri, 17 Jan 2025 13:10:18 +0000
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
