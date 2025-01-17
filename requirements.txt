@@ -1,4 +1,5 @@
-pyinotify==0.9.6
+# Follow_symlinks isnt released in 6.0.0 yet, so we use the latest current commit
+watchdog @ git+https://github.com/gorakhargosh/watchdog.git@f3e78cd4d9500d287bd11ec5d08a1f351601028d
 
 mock==5.0.1
 pytest==7.2.1
