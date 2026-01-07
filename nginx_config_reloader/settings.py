@@ -13,14 +13,15 @@ NGINX = "/usr/sbin/nginx"
 NGINX_PID_FILE = "/var/run/nginx.pid"
 ERROR_FILE = "nginx_error_output"
 
-WATCH_IGNORE_FILES = (
+_BASE_IGNORE_FILES = (
     # glob patterns
     ".*",
     "*~",
     "*.save",
     ERROR_FILE,
 )
-SYNC_IGNORE_FILES = WATCH_IGNORE_FILES + ("*.flag",)
+WATCH_IGNORE_FILES = _BASE_IGNORE_FILES + ("*.crtkeyca",)
+SYNC_IGNORE_FILES = _BASE_IGNORE_FILES + ("*.flag",)
 SYSLOG_SOCKET = "/dev/log"
 
 # Using include or load_module is forbidden unless
