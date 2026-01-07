@@ -2,8 +2,8 @@ import os
 import shutil
 import unittest
 from tempfile import NamedTemporaryFile, mkdtemp
+from unittest import mock
 
-import mock
 from watchdog.events import DirCreatedEvent, FileDeletedEvent, FileMovedEvent
 
 import nginx_config_reloader
