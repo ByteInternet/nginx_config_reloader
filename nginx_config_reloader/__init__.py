@@ -53,7 +53,6 @@ class NginxConfigReloader(FileSystemEventHandler):
         no_custom_config=False,
         dir_to_watch=DIR_TO_WATCH,
         magento2_flag=None,
-        notifier=None,
         use_systemd=False,
     ):
         """Constructor called by ProcessEvent
@@ -76,7 +75,6 @@ class NginxConfigReloader(FileSystemEventHandler):
         else:
             self.magento2_flag = magento2_flag
         self.logger.info(self.dir_to_watch)
-        self.notifier = notifier
         self.use_systemd = use_systemd
         self.dirty = False
         self.applying = False
@@ -107,10 +105,11 @@ class NginxConfigReloader(FileSystemEventHandler):
     def on_any_event(self, event):
         """Triggered by inotify when watched dir is moved or deleted"""
         if event.is_directory and event.event_type in ["moved", "deleted"]:
-            self.logger.warning(
-                f"Directory {event.src_path} has been {event.event_type}."
-            )
-            raise ListenTargetTerminated
+            if event.src_path == self.dir_to_watch:
+                self.logger.warning(
+                    f"Directory {event.src_path} has been {event.event_type}."
+                )
+                raise ListenTargetTerminated
 
     def handle_event(self, event):
         file_path = Path(event.src_path)
@@ -350,7 +349,6 @@ class NginxConfigReloader(FileSystemEventHandler):
     def stop_observer(self):
         self.observer.stop()
         self.observer.join()
-        sys.exit()
 
 
 class ListenTargetTerminated(BaseException):
@@ -373,7 +371,7 @@ def dbus_event_loop():
 
 
 def wait_loop(
-    logger=None,
+    logger: logging.Logger,
     no_magento_config=False,
     no_custom_config=False,
     dir_to_watch=DIR_TO_WATCH,
@@ -384,9 +382,9 @@ def wait_loop(
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
-    As soon as it becomes available, it starts an inotify-monitor that monitors
+    As soon as it becomes available, it starts a watchdog observer that monitors
     configuration changes in an inner event loop. When the monitored directory is
-    renamed or removed, the inotify-handler raises an exception to break out of the
+    renamed or removed, the handler raises an exception to break out of the
     inner loop and we're back here in the outer loop.
 
     :param logging.Logger logger: The logger object
@@ -423,19 +421,25 @@ def wait_loop(
         )
         time.sleep(5)
 
-    try:
-        logger.info(f"Listening for changes to {dir_to_watch}")
-        nginx_config_changed_handler.start_observer()
-        while True:
-            time.sleep(1)
-            after_loop(nginx_config_changed_handler)
-    except ListenTargetTerminated:
-        logger.warning("Configuration dir lost, waiting for it to reappear")
-        nginx_config_changed_handler.stop_observer()
-        time.sleep(5)
-    except KeyboardInterrupt:
-        logger.info("Shutting down observer.")
-        nginx_config_changed_handler.stop_observer()
+    running = True
+    while running:
+        # Install initial configuration
+        nginx_config_changed_handler.reload(send_signal=False)
+
+        try:
+            logger.info(f"Listening for changes to {dir_to_watch}")
+            nginx_config_changed_handler.start_observer()
+            while True:
+                time.sleep(1)
+                after_loop(nginx_config_changed_handler)
+        except ListenTargetTerminated:
+            logger.warning("Configuration dir lost, waiting for it to reappear")
+            nginx_config_changed_handler.stop_observer()
+            time.sleep(5)
+        except KeyboardInterrupt:
+            logger.info("Shutting down observer.")
+            nginx_config_changed_handler.stop_observer()
+            running = False
 
 
 def as_unprivileged_user():
@@ -487,7 +491,7 @@ def parse_nginx_config_reloader_arguments():
     return parser.parse_args()
 
 
-def get_logger():
+def get_logger() -> logging.Logger:
     handler = logging.StreamHandler()
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
