@@ -12,7 +12,6 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
 from typing import Optional
 
 from dasbus.loop import EventLoop
@@ -112,14 +111,6 @@ class NginxConfigReloader(FileSystemEventHandler):
                 raise ListenTargetTerminated
 
     def handle_event(self, event):
-        file_path = Path(event.src_path)
-        if (
-            file_path.name.endswith(".swx")
-            or file_path.name.endswith(".swp")
-            or file_path.name.endswith("~")
-        ):
-            return
-
         if event.is_directory:
             return
 
@@ -129,7 +120,6 @@ class NginxConfigReloader(FileSystemEventHandler):
                 f"{event.event_type.upper()} detected on {event.src_path}"
             )
             self.dirty = True
-            # Additional handling if necessary
 
     def install_magento_config(self):
         # Check if configs are present
