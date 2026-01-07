@@ -467,6 +467,12 @@ class TestConfigReloader(TestCase):
 
         self.assertFalse(tm.dirty)
 
+    def test_that_handle_event_does_not_need_reload_on_change_of_crtkeyca_file(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.handle_event(Event("certificate.crtkeyca"))
+
+        self.assertFalse(tm.dirty)
+
     def test_remove_error_file_unlinks_the_error_file(self):
         mock_os = self.set_up_patch("nginx_config_reloader.os")
         mock_os.path.join.return_value = self.error_file
