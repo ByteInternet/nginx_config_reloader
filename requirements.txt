@@ -4,7 +4,7 @@ watchdog @ git+https://github.com/gorakhargosh/watchdog.git@f3e78cd4d9500d287bd1
 pytest==9.0.2
 pytest-xdist==3.8.0
 tox==4.4.5
-black==23.1.0
+black==24.3.0
 pre-commit==2.21.0
 pygobject<3.51
 pygobject-stubs
