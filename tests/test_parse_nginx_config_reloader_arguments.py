@@ -1,4 +1,4 @@
-from mock import call
+from unittest.mock import call
 
 import nginx_config_reloader
 from nginx_config_reloader import parse_nginx_config_reloader_arguments

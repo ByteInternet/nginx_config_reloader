@@ -14,9 +14,10 @@ import threading
 import time
 from typing import Optional
 
-import pyinotify
 from dasbus.loop import EventLoop
 from dasbus.signal import Signal
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from nginx_config_reloader.copy_files import safe_copy_files
 from nginx_config_reloader.dbus.common import NGINX_CONFIG_RELOADER, SYSTEM_BUS
@@ -43,15 +44,14 @@ logger = logging.getLogger(__name__)
 dbus_loop: Optional[EventLoop] = None
 
 
-class NginxConfigReloader(pyinotify.ProcessEvent):
-    def my_init(
+class NginxConfigReloader(FileSystemEventHandler):
+    def __init__(
         self,
         logger=None,
         no_magento_config=False,
         no_custom_config=False,
         dir_to_watch=DIR_TO_WATCH,
         magento2_flag=None,
-        notifier=None,
         use_systemd=False,
     ):
         """Constructor called by ProcessEvent
@@ -74,41 +74,51 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         else:
             self.magento2_flag = magento2_flag
         self.logger.info(self.dir_to_watch)
-        self.notifier = notifier
         self.use_systemd = use_systemd
         self.dirty = False
         self.applying = False
         self._on_config_reload = Signal()
 
-    def process_IN_DELETE(self, event):
+    def on_deleted(self, event):
         """Triggered by inotify on removal of file or removal of dir
 
         If the dir itself is removed, inotify will stop watching and also
         trigger IN_IGNORED.
         """
-        if not event.dir:  # Will also capture IN_DELETE_SELF
+        if not event.is_directory:
             self.handle_event(event)
 
-    def process_IN_MOVED(self, event):
+    def on_moved(self, event):
         """Triggered by inotify when a file is moved from or to the dir"""
         self.handle_event(event)
 
-    def process_IN_CREATE(self, event):
+    def on_created(self, event):
         """Triggered by inotify when a dir is created in the watch dir"""
-        if event.dir:
+        if event.is_directory:
             self.handle_event(event)
 
-    def process_IN_CLOSE_WRITE(self, event):
+    def on_modified(self, event):
         """Triggered by inotify when a file is written in the dir"""
         self.handle_event(event)
 
-    def process_IN_MOVE_SELF(self, event):
-        """Triggered by inotify when watched dir is moved"""
-        raise ListenTargetTerminated
+    def on_any_event(self, event):
+        """Triggered by inotify when watched dir is moved or deleted"""
+        if event.is_directory and event.event_type in ["moved", "deleted"]:
+            if event.src_path == self.dir_to_watch:
+                self.logger.warning(
+                    f"Directory {event.src_path} has been {event.event_type}."
+                )
+                raise ListenTargetTerminated
 
     def handle_event(self, event):
-        if not any(fnmatch.fnmatch(event.name, pat) for pat in WATCH_IGNORE_FILES):
-            self.logger.info("{} detected on {}.".format(event.maskname, event.name))
+        if event.is_directory:
+            return
+
+        basename = os.path.basename(event.src_path)
+        if not any(fnmatch.fnmatch(basename, pat) for pat in WATCH_IGNORE_FILES):
+            self.logger.debug(
+                f"{event.event_type.upper()} detected on {event.src_path}"
+            )
             self.dirty = True
 
     def install_magento_config(self):
@@ -319,6 +329,17 @@ class NginxConfigReloader(pyinotify.ProcessEvent):
         if send_signal:
             self._on_config_reload.emit()
 
+    def start_observer(self):
+        self.observer = Observer()
+        self.observer.schedule(
+            self, self.dir_to_watch, recursive=True, follow_symlink=True
+        )
+        self.observer.start()
+
+    def stop_observer(self):
+        self.observer.stop()
+        self.observer.join()
+
 
 class ListenTargetTerminated(BaseException):
     pass
@@ -340,7 +361,7 @@ def dbus_event_loop():
 
 
 def wait_loop(
-    logger=None,
+    logger: logging.Logger,
     no_magento_config=False,
     no_custom_config=False,
     dir_to_watch=DIR_TO_WATCH,
@@ -351,9 +372,9 @@ def wait_loop(
     """Main event loop
 
     There is an outer loop that checks the availability of the directory to watch.
-    As soon as it becomes available, it starts an inotify-monitor that monitors
+    As soon as it becomes available, it starts a watchdog observer that monitors
     configuration changes in an inner event loop. When the monitored directory is
-    renamed or removed, the inotify-handler raises an exception to break out of the
+    renamed or removed, the handler raises an exception to break out of the
     inner loop and we're back here in the outer loop.
 
     :param logging.Logger logger: The logger object
@@ -367,20 +388,11 @@ def wait_loop(
     """
     dir_to_watch = os.path.abspath(dir_to_watch)
 
-    wm = pyinotify.WatchManager()
-    notifier = pyinotify.Notifier(wm)
-
-    class SymlinkChangedHandler(pyinotify.ProcessEvent):
-        def process_IN_DELETE(self, event):
-            if event.pathname == dir_to_watch:
-                raise ListenTargetTerminated("watched directory was deleted")
-
     nginx_config_changed_handler = NginxConfigReloader(
         logger=logger,
         no_magento_config=no_magento_config,
         no_custom_config=no_custom_config,
         dir_to_watch=dir_to_watch,
-        notifier=notifier,
         use_systemd=use_systemd,
     )
 
@@ -393,35 +405,31 @@ def wait_loop(
         dbus_thread = threading.Thread(target=dbus_event_loop)
         dbus_thread.start()
 
-    while True:
-        while not os.path.exists(dir_to_watch):
-            logger.warning(
-                "Configuration dir {} not found, waiting...".format(dir_to_watch)
-            )
-            time.sleep(5)
-
-        wm.add_watch(
-            dir_to_watch,
-            pyinotify.ALL_EVENTS,
-            nginx_config_changed_handler,
-            rec=recursive_watch,
-            auto_add=True,
+    while not os.path.exists(dir_to_watch):
+        logger.warning(
+            "Configuration dir {} not found, waiting...".format(dir_to_watch)
         )
-        wm.watch_transient_file(
-            dir_to_watch, pyinotify.ALL_EVENTS, SymlinkChangedHandler
-        )
+        time.sleep(5)
 
+    running = True
+    while running:
         # Install initial configuration
         nginx_config_changed_handler.reload(send_signal=False)
 
         try:
-            logger.info("Listening for changes to {}".format(dir_to_watch))
-            notifier.coalesce_events()
-            notifier.loop(callback=lambda _: after_loop(nginx_config_changed_handler))
-        except pyinotify.NotifierError as err:
-            logger.critical(err)
+            logger.info(f"Listening for changes to {dir_to_watch}")
+            nginx_config_changed_handler.start_observer()
+            while True:
+                time.sleep(1)
+                after_loop(nginx_config_changed_handler)
         except ListenTargetTerminated:
             logger.warning("Configuration dir lost, waiting for it to reappear")
+            nginx_config_changed_handler.stop_observer()
+            time.sleep(5)
+        except KeyboardInterrupt:
+            logger.info("Shutting down observer.")
+            nginx_config_changed_handler.stop_observer()
+            running = False
 
 
 def as_unprivileged_user():
@@ -473,7 +481,7 @@ def parse_nginx_config_reloader_arguments():
     return parser.parse_args()
 
 
-def get_logger():
+def get_logger() -> logging.Logger:
     handler = logging.StreamHandler()
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")

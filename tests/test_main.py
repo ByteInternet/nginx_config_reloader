@@ -1,7 +1,6 @@
 import shutil
 from tempfile import mkdtemp
-
-from mock import Mock
+from unittest.mock import Mock
 
 from nginx_config_reloader import main
 from tests.testcase import TestCase

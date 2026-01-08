@@ -3,14 +3,20 @@ import shutil
 import signal
 import stat
 import subprocess
-from collections import deque
+import sys
 from tempfile import NamedTemporaryFile, mkdtemp, mkstemp
+from unittest import mock
 from unittest.mock import Mock
 
-import mock
+import pytest
 
 import nginx_config_reloader
 from tests.testcase import TestCase
+
+# Skip marker for tests that require Linux-specific features (rsync with --chown, etc.)
+requires_linux = pytest.mark.skipif(
+    sys.platform != "linux", reason="Requires Linux-specific rsync features"
+)
 
 
 class TestConfigReloader(TestCase):
@@ -45,7 +51,6 @@ class TestConfigReloader(TestCase):
         self.error_file = os.path.join(
             nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE
         )
-        self.notifier = Mock(_eventq=deque(range(5)))
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -58,6 +63,7 @@ class TestConfigReloader(TestCase):
             except OSError:
                 pass
 
+    @requires_linux
     def test_that_apply_new_config_moves_files_to_dest_dir(self):
         self._write_file(self._source("myfile"), "config contents")
 
@@ -67,6 +73,7 @@ class TestConfigReloader(TestCase):
         contents = self._read_file(self._dest("myfile"))
         self.assertEqual(contents, "config contents")
 
+    @requires_linux
     def test_that_apply_config_moves_files_to_dest_dir_if_it_doesnt_yet_exist(self):
         self._write_file(self._source("myfile"), "config contents")
         shutil.rmtree(self.dest, ignore_errors=True)
@@ -163,12 +170,14 @@ class TestConfigReloader(TestCase):
         contents = self._read_file(self._source("myfile"))
         self.assertEqual(contents, "config contents")
 
+    @requires_linux
     def test_that_apply_new_config_sends_hup_to_nginx(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
         self.kill.assert_called_once_with(42, signal.SIGHUP)
 
+    @requires_linux
     def test_that_apply_new_config_removes_error_file_when_config_correct_and_ignores_all_oserrors(
         self,
     ):
@@ -249,6 +258,7 @@ class TestConfigReloader(TestCase):
         contents = self._read_file(self._source(nginx_config_reloader.ERROR_FILE))
         self.assertIn(nginx_config_reloader.FORBIDDEN_CONFIG_REGEX[0][1], contents)
 
+    @requires_linux
     def test_that_apply_new_config_does_not_check_includes_if_dir_to_watch_does_not_exist(
         self,
     ):
@@ -551,6 +561,7 @@ class TestConfigReloader(TestCase):
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
 
+    @requires_linux
     def test_files_are_copied(self):
         with open(os.path.join(self.source, "server.test.cnf"), "w") as fp:
             fp.write("test")
@@ -560,18 +571,21 @@ class TestConfigReloader(TestCase):
         with open(os.path.join(self.dest, "server.test.cnf")) as fp:
             self.assertIn("test", fp.read())
 
+    @requires_linux
     def test_new_dir_is_placed(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
         self.assertTrue(os.path.exists(os.path.join(self.dest, "new_dir")))
 
+    @requires_linux
     def test_dotfiles_are_ignored(self):
         os.mkdir(os.path.join(self.source, ".git"))
         tm = self._get_nginx_config_reloader_instance()
         tm.apply_new_config()
         self.assertFalse(os.path.exists(os.path.join(self.dest, ".git")))
 
+    @requires_linux
     def test_symlink_to_file_is_copied_to_file(self):
         with open(os.path.join(self.source, "server.test.cnf"), "w") as fp:
             fp.write("test")
@@ -584,6 +598,7 @@ class TestConfigReloader(TestCase):
         self.assertFalse(os.path.islink(os.path.join(self.dest, "symlink")))
         self.assertTrue(os.path.isfile(os.path.join(self.dest, "symlink")))
 
+    @requires_linux
     def test_symlink_to_dir_is_copied_to_dir(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
         os.symlink(
@@ -594,6 +609,7 @@ class TestConfigReloader(TestCase):
         self.assertFalse(os.path.islink(os.path.join(self.dest, "symlink")))
         self.assertTrue(os.path.isdir(os.path.join(self.dest, "symlink")))
 
+    @requires_linux
     def test_sticky_bits_are_removed_from_dir(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
         os.chmod(os.path.join(self.source, "new_dir"), 0o4755)
@@ -603,6 +619,7 @@ class TestConfigReloader(TestCase):
             str(oct(os.stat(os.path.join(self.dest, "new_dir")).st_mode))[-5:], "40755"
         )
 
+    @requires_linux
     def test_sticky_bits_are_removed_from_file(self):
         with open(os.path.join(self.source, "server.test.cnf"), "w") as fp:
             fp.write("test")
@@ -614,6 +631,7 @@ class TestConfigReloader(TestCase):
             "0644",
         )
 
+    @requires_linux
     def test_dir_is_chmodded_to_0755(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
         os.chmod(os.path.join(self.source, "new_dir"), 0o777)
@@ -623,6 +641,7 @@ class TestConfigReloader(TestCase):
             str(oct(os.stat(os.path.join(self.dest, "new_dir")).st_mode))[-5:], "40755"
         )
 
+    @requires_linux
     def test_execute_permissions_are_stripped_for_others(self):
         with open(os.path.join(self.source, "server.test.cnf"), "w") as fp:
             fp.write("test")
@@ -633,6 +652,7 @@ class TestConfigReloader(TestCase):
             os.stat(os.path.join(self.dest, "server.test.cnf")).st_mode & stat.S_IXOTH
         )
 
+    @requires_linux
     def test_write_permissions_are_stripped_for_others(self):
         with open(os.path.join(self.source, "server.test.cnf"), "w") as fp:
             fp.write("test")
@@ -643,6 +663,7 @@ class TestConfigReloader(TestCase):
             os.stat(os.path.join(self.dest, "server.test.cnf")).st_mode & stat.S_IWOTH
         )
 
+    @requires_linux
     def test_permissions_are_masked_for_file_in_subdir(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
         with open(os.path.join(self.source, "new_dir/server.test.cnf"), "w") as fp:
@@ -671,14 +692,12 @@ class TestConfigReloader(TestCase):
         no_magento_config=False,
         no_custom_config=False,
         magento2_flag=None,
-        notifier=None,
     ):
         return nginx_config_reloader.NginxConfigReloader(
             no_magento_config=no_magento_config,
             no_custom_config=no_custom_config,
             dir_to_watch=self.source,
             magento2_flag=magento2_flag,
-            notifier=notifier or self.notifier,
         )
 
     def _write_file(self, name, contents):
@@ -699,4 +718,6 @@ class TestConfigReloader(TestCase):
 class Event:
     def __init__(self, name):
         self.name = name
-        self.maskname = "IN_CLOSE_WRITE"
+        self.event_type = "modified"
+        self.src_path = name
+        self.is_directory = False

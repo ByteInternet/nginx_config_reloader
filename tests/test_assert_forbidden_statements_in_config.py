@@ -1,8 +1,16 @@
-import pipes
+import shlex
+import sys
 from subprocess import CalledProcessError, check_output
+
+import pytest
 
 from nginx_config_reloader import FORBIDDEN_CONFIG_REGEX, NginxConfigReloader
 from tests.testcase import TestCase
+
+# Skip marker for tests that require grep -P (PCRE support, not available on macOS)
+requires_pcre_grep = pytest.mark.skipif(
+    sys.platform != "linux", reason="Requires grep -P (PCRE support)"
+)
 
 
 class TestAssertNoForbiddenStatementsInConfig(TestCase):
@@ -24,6 +32,7 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
 
         self.assertFalse(self.check_output.called)
 
+    @requires_pcre_grep
     def test_include_prevention_legal_includes(self):
         TEST_CASES = [
             "include /etc/nginx/fastcgi_params",
@@ -41,11 +50,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
         for line in TEST_CASES:
             check_output(
                 "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                    pipes.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]
+                    shlex.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]
                 ),
                 shell=True,
             )
 
+    @requires_pcre_grep
     def test_include_prevention_illegal_includes(self):
         TEST_CASES = [
             "include /data/web/nginx/someexample.allow;",
@@ -67,11 +77,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             with self.assertRaises(CalledProcessError):
                 check_output(
                     "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                        pipes.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]
+                        shlex.quote(line), FORBIDDEN_CONFIG_REGEX[2][0]
                     ),
                     shell=True,
                 )
 
+    @requires_pcre_grep
     def test_forbidden_config_client_body_temp_path_regex_unhappy_case(self):
         TEST_CASES = [
             "client_body_temp_path /tmp/path",
@@ -85,11 +96,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             with self.assertRaises(CalledProcessError):
                 check_output(
                     "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                        pipes.quote(test), FORBIDDEN_CONFIG_REGEX[0][0]
+                        shlex.quote(test), FORBIDDEN_CONFIG_REGEX[0][0]
                     ),
                     shell=True,
                 )
 
+    @requires_pcre_grep
     def test_forbidden_access_or_error_log_configuration_options(self):
         TEST_CASES = [
             "access_log /var/log/nginx/acceptatie.log;",
@@ -116,11 +128,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             with self.assertRaises(CalledProcessError):
                 check_output(
                     "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                        pipes.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]
+                        shlex.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]
                     ),
                     shell=True,
                 )
 
+    @requires_pcre_grep
     def test_allowed_access_or_error_log_configuration_options(self):
         TEST_CASES = [
             "access_log /data/var/log/access.log;",
@@ -137,11 +150,12 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
         for test in TEST_CASES:
             check_output(
                 "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                    pipes.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]
+                    shlex.quote(test), FORBIDDEN_CONFIG_REGEX[1][0]
                 ),
                 shell=True,
             )
 
+    @requires_pcre_grep
     def test_forbidden_config_init_by_lua_regex_matches_target_directives(self):
         TEST_CASES = ["init_by_lua", "init_by_lua_block", "init_by_lua_file"]
 
@@ -149,7 +163,7 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
             with self.assertRaises(CalledProcessError):
                 check_output(
                     "[ $(echo {} | grep -P '{}' | wc -l) -lt 1 ]".format(
-                        pipes.quote(test), FORBIDDEN_CONFIG_REGEX[3][0]
+                        shlex.quote(test), FORBIDDEN_CONFIG_REGEX[3][0]
                     ),
                     shell=True,
                 )

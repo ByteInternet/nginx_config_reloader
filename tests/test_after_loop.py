@@ -1,4 +1,3 @@
-from collections import deque
 from tempfile import mkdtemp
 from unittest.mock import Mock
 
@@ -9,7 +8,9 @@ from tests.testcase import TestCase
 class TestAfterLoop(TestCase):
     def setUp(self) -> None:
         self.source = mkdtemp()
-        self.notifier = Mock(_eventq=deque(range(5)))
+        self.set_up_patch(
+            "nginx_config_reloader.directory_is_unmounted", return_value=False
+        )
 
     def test_it_returns_nothing(self):
         tm = self._get_nginx_config_reloader_instance()
@@ -43,12 +44,10 @@ class TestAfterLoop(TestCase):
         no_magento_config=False,
         no_custom_config=False,
         magento2_flag=None,
-        notifier=None,
     ):
         return nginx_config_reloader.NginxConfigReloader(
             no_magento_config=no_magento_config,
             no_custom_config=no_custom_config,
             dir_to_watch=self.source,
             magento2_flag=magento2_flag,
-            notifier=notifier or self.notifier,
         )

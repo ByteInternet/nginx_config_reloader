@@ -1,11 +1,11 @@
-pyinotify==0.9.6
+# Follow_symlinks isnt released in 6.0.0 yet, so we use the latest current commit
+watchdog @ git+https://github.com/gorakhargosh/watchdog.git@f3e78cd4d9500d287bd11ec5d08a1f351601028d
 
-mock==5.0.1
-pytest==7.2.1
-pytest-xdist==3.2.0
+pytest==9.0.2
+pytest-xdist==3.8.0
 tox==4.4.5
 black==23.1.0
 pre-commit==2.21.0
-pygobject
+pygobject<3.51
 pygobject-stubs
 dasbus==1.7

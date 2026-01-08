@@ -1,7 +1,6 @@
 import sys
 import unittest
-
-from mock import Mock, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 
 class TestCase(unittest.TestCase):
