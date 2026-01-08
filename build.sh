@@ -2,7 +2,7 @@
 set -e
 
 ARCH="${ARCH:-amd64}"
-DIST="${DIST:-xenial}"
+DIST="${DIST:-bookworm}"
 BUILDAREA="${BUILDAREA:-/tmp/nginx-config-reloader-build}"
 BUILDPATH="${BUILDAREA}-${DIST}"
 BRANCH="master"
