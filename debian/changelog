@@ -1,4 +1,4 @@
-nginx-config-reloader (20250117.131018) UNRELEASED; urgency=medium
+nginx-config-reloader (20260108.124844) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -79,7 +79,25 @@ nginx-config-reloader (20250117.131018) UNRELEASED; urgency=medium
   * Fix CI to support py 3.7 again (#63)
   * Add permission error when user cannot write to /etc/nginx folder (#62)
 
- -- Hypernode team <hypernode@byte.nl>  Fri, 17 Jan 2025 13:10:18 +0000
+  [ Timon de Groot ]
+  * Ignore crtkeyca change events
+  * ci: Update test config for Python 3.11 only
+  * debian: Remove compat
+
+  [ Jonathan Visser ]
+  * Replace watchdog with pyinotify
+  * Fix linting issues
+
+  [ Timon de Groot ]
+  * Fix watchdog regressions
+  * Remove obsolete watch ignores
+  * debian/control: Update dependencies
+  * Fix unit tests
+  * debian/rules: Remove --with systemd
+  * debian: Remove nginx-config-reloader.upstart
+  * build: Update xenial to bookworm
+
+ -- Hypernode team <hypernode@byte.nl>  Thu, 08 Jan 2026 12:48:46 +0100
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
