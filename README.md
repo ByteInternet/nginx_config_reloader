@@ -11,13 +11,7 @@ the error message from nginx will be placed in `/data/web/nginx/nginx_error_outp
 ## Installation
 
 ```bash
-python setup.py install
-```
-
-or
-
-```bash
-pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=nginx_config_reloader
+uv sync
 ```
 
 ## Usage
@@ -32,8 +26,7 @@ pip install -e git+https://github.com/ByteInternet/nginx_config_reloader#egg=ngi
 ## Running tests
 
 ```bash
-pip install -r requirements.txt
-tox
+uv run pytest tests
 ```
 
 ## Building debian packages
