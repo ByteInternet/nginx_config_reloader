@@ -114,10 +114,10 @@ deb_changelog_updated() {
 mark_release() {
     log "marking release $VERSION ..."
 
-    local setuppy="$ROOT_DIR/setup.py"
-    log "updating setup.py"
-    sed -i "s/version=\".*\",/version=\"$VERSION\",/" $setuppy
-    git add $setuppy
+    log "updating project version"
+    uv version "$VERSION"
+    git add pyproject.toml uv.lock
+
     log "generating debian changelog"
     gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch=master
     git add $CHANGELOG
