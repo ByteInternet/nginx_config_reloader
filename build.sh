@@ -13,14 +13,11 @@ if [ "$(git rev-parse --abbrev-ref HEAD)" != $BRANCH ]; then
 fi;
 
 export VERSION=$(date "+%Y%m%d.%H%M%S")
-echo "Updating setup.py with version $VERSION"
-perl -pi -e 's/version="[^"]*",/version=\"$ENV{"VERSION"}\",/g;' setup.py
+echo "Updating project to version $VERSION"
+git add pyproject.toml uv.lock
 
-echo "Adding setup.py to git index"
-git add setup.py
-
-echo "Committing setup.py version update"
-git commit setup.py -m "Update version in setup.py to $VERSION"
+echo "Committing version update"
+git commit pyproject.toml uv.lock -m "Update project version to $VERSION"
 
 echo "Generating changelog changelog"
 gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch $BRANCH --release --commit

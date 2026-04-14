@@ -1,2 +1,33 @@
+[project]
+name = "nginx-config-reloader"
+version = "20260108.124844"
+description = "nginx config file monitor and reloader"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "dasbus==1.7",
+    "pygobject<3.51",
+    "watchdog",
+]
+
+[tool.uv.sources]
+watchdog = { git = "https://github.com/gorakhargosh/watchdog.git", rev = "f3e78cd4d9500d287bd11ec5d08a1f351601028d" }
+
+[project.scripts]
+nginx_config_reloader = "nginx_config_reloader:main"
+
+[build-system]
+requires = ["setuptools>=66", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "pre-commit>=3.2.0",
+    "pygobject-stubs>=2.16.0",
+    "pytest>=9.0.2",
+    "pytest-xdist>=3.8.0",
+]
+
 [tool.isort]
 profile = "black"  # Make isort compatible with black
