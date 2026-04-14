@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
 
 import argparse
 import fnmatch
@@ -12,7 +11,6 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Optional
 
 from dasbus.loop import EventLoop
 from dasbus.signal import Signal
@@ -41,7 +39,7 @@ from nginx_config_reloader.settings import (
 from nginx_config_reloader.utils import directory_is_unmounted
 
 logger = logging.getLogger(__name__)
-dbus_loop: Optional[EventLoop] = None
+dbus_loop: EventLoop | None = None
 
 
 class NginxConfigReloader(FileSystemEventHandler):
@@ -173,7 +171,7 @@ class NginxConfigReloader(FileSystemEventHandler):
                     )
                     subprocess.check_output(check_external_resources, shell=True)
                 except subprocess.CalledProcessError:
-                    error = "Unable to load config: {}".format(rules[1])
+                    error = f"Unable to load config: {rules[1]}"
                     self.logger.error(error)
                     self.write_error_file(error)
                     return True
@@ -234,7 +232,7 @@ class NginxConfigReloader(FileSystemEventHandler):
                     extra_output = e.output
                     if isinstance(e.output, bytes):
                         extra_output = extra_output.decode()
-                    error_output += "\n\n{}".format(extra_output)
+                    error_output += f"\n\n{extra_output}"
                 self.logger.error("Installation of custom config failed")
                 self.restore_old_custom_config_dir()
                 self.write_error_file(error_output)
@@ -304,9 +302,9 @@ class NginxConfigReloader(FileSystemEventHandler):
 
     def get_nginx_pid(self):
         try:
-            with open(NGINX_PID_FILE, "r") as f:
+            with open(NGINX_PID_FILE) as f:
                 return int(f.read())
-        except (IOError, ValueError):
+        except (OSError, ValueError):
             return None
 
     def write_error_file(self, error):
@@ -406,9 +404,7 @@ def wait_loop(
         dbus_thread.start()
 
     while not os.path.exists(dir_to_watch):
-        logger.warning(
-            "Configuration dir {} not found, waiting...".format(dir_to_watch)
-        )
+        logger.warning(f"Configuration dir {dir_to_watch} not found, waiting...")
         time.sleep(5)
 
     running = True
