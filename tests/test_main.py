@@ -2,6 +2,7 @@ import shutil
 from tempfile import mkdtemp
 from unittest.mock import Mock
 
+import nginx_config_reloader
 from nginx_config_reloader import main
 from tests.testcase import TestCase
 
@@ -9,6 +10,7 @@ from tests.testcase import TestCase
 class TestMain(TestCase):
     def setUp(self):
         self.source = mkdtemp()
+        self.custom_error_file = "nginx_error_output.hnclusterweb1"
         self.parse_nginx_config_reloader_arguments = self.set_up_patch(
             "nginx_config_reloader.parse_nginx_config_reloader_arguments"
         )
@@ -21,6 +23,7 @@ class TestMain(TestCase):
             recursivewatch=False,
             use_systemd=False,
             no_dbus=False,
+            error_file=self.custom_error_file,
         )
         self.get_logger = self.set_up_context_manager_patch(
             "nginx_config_reloader.get_logger"
@@ -54,6 +57,7 @@ class TestMain(TestCase):
             no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
             dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+            error_file=self.parse_nginx_config_reloader_arguments.return_value.error_file,
         )
         self.reloader.return_value.apply_new_config.assert_called_once_with()
 
@@ -80,6 +84,7 @@ class TestMain(TestCase):
             recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
             no_dbus=self.parse_nginx_config_reloader_arguments.return_value.no_dbus,
+            error_file=self.parse_nginx_config_reloader_arguments.return_value.error_file,
         )
 
     def test_main_watches_the_config_dir_if_monitor_mode_is_specified_and_includes_allowed(
@@ -98,6 +103,7 @@ class TestMain(TestCase):
             recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
             no_dbus=self.parse_nginx_config_reloader_arguments.return_value.no_dbus,
+            error_file=self.parse_nginx_config_reloader_arguments.return_value.error_file,
         )
 
     def test_main_does_not_reload_the_config_once_if_monitor_mode_is_specified(self):
@@ -128,4 +134,43 @@ class TestMain(TestCase):
             recursive_watch=self.parse_nginx_config_reloader_arguments.return_value.recursivewatch,
             use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
             no_dbus=True,
+            error_file=self.parse_nginx_config_reloader_arguments.return_value.error_file,
+        )
+
+    def test_main_rejects_invalid_error_file_name(self):
+        self.parse_nginx_config_reloader_arguments.return_value.error_file = "bad/name"
+
+        ret = main()
+
+        self.assertEqual(1, ret)
+        self.get_logger.return_value.error.assert_called_once_with(
+            "Invalid error file name provided: bad/name"
+        )
+        self.assertFalse(self.wait_loop.called)
+        self.assertFalse(self.reloader.called)
+
+    def test_main_accepts_default_error_file_name(self):
+        self.parse_nginx_config_reloader_arguments.return_value.error_file = (
+            nginx_config_reloader.ERROR_FILE
+        )
+
+        ret = main()
+
+        self.assertEqual(0, ret)
+
+    def test_main_accepts_custom_error_file_name_with_dots(self):
+        self.parse_nginx_config_reloader_arguments.return_value.error_file = (
+            self.custom_error_file
+        )
+
+        ret = main()
+
+        self.assertEqual(0, ret)
+        self.reloader.assert_called_once_with(
+            logger=self.get_logger.return_value,
+            no_magento_config=self.parse_nginx_config_reloader_arguments.return_value.nomagentoconfig,
+            no_custom_config=self.parse_nginx_config_reloader_arguments.return_value.nocustomconfig,
+            dir_to_watch=self.parse_nginx_config_reloader_arguments.return_value.watchdir,
+            use_systemd=self.parse_nginx_config_reloader_arguments.return_value.use_systemd,
+            error_file=self.custom_error_file,
         )

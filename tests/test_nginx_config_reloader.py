@@ -51,6 +51,8 @@ class TestConfigReloader(TestCase):
         self.error_file = os.path.join(
             nginx_config_reloader.DIR_TO_WATCH, nginx_config_reloader.ERROR_FILE
         )
+        self.custom_error_name = "nginx_error_output.hnclusterweb1"
+        self.custom_error_file = os.path.join(self.source, self.custom_error_name)
 
     def tearDown(self):
         shutil.rmtree(self.source, ignore_errors=True)
@@ -471,6 +473,14 @@ class TestConfigReloader(TestCase):
 
         self.assertFalse(tm.dirty)
 
+    def test_that_handle_event_does_not_need_reload_on_change_of_custom_error_file(
+        self,
+    ):
+        tm = self._get_nginx_config_reloader_instance(error_file=self.custom_error_name)
+        tm.handle_event(Event(self.custom_error_name))
+
+        self.assertFalse(tm.dirty)
+
     def test_that_handle_event_does_not_need_reload_on_change_of_invisible_file(self):
         tm = self._get_nginx_config_reloader_instance()
         tm.handle_event(Event(".config.swp"))
@@ -497,6 +507,16 @@ class TestConfigReloader(TestCase):
         tm = self._get_nginx_config_reloader_instance()
         self.assertFalse(tm.remove_error_file())
 
+    def test_remove_error_file_unlinks_the_custom_error_file(self):
+        mock_os = self.set_up_patch("nginx_config_reloader.os")
+        mock_os.path.join.return_value = self.custom_error_file
+
+        tm = self._get_nginx_config_reloader_instance(error_file=self.custom_error_name)
+
+        self.assertTrue(tm.remove_error_file())
+        mock_os.path.join.assert_called_once_with(self.source, self.custom_error_name)
+        mock_os.unlink.assert_called_once_with(self.custom_error_file)
+
     def test_that_install_new_custom_config_dir_always_removes_the_error_file_before_copying_configs(
         self,
     ):
@@ -514,6 +534,24 @@ class TestConfigReloader(TestCase):
             tm.install_new_custom_config_dir()
 
         self.assertTrue(mock_remove_error_file.called)
+
+    def test_that_install_new_custom_config_dir_excludes_custom_error_file_from_sync(
+        self,
+    ):
+        self.set_up_patch("nginx_config_reloader.shutil.rmtree")
+        self.set_up_patch("nginx_config_reloader.shutil.move")
+        self.set_up_patch("nginx_config_reloader.os.path.exists", return_value=True)
+        self.set_up_patch("nginx_config_reloader.os.mkdir")
+        safe_copy_files = self.set_up_patch("nginx_config_reloader.safe_copy_files")
+
+        tm = self._get_nginx_config_reloader_instance(error_file=self.custom_error_name)
+        tm.install_new_custom_config_dir()
+
+        safe_copy_files.assert_called_once_with(
+            self.source,
+            self.dest,
+            list(nginx_config_reloader.SYNC_IGNORE_FILES) + [self.custom_error_name],
+        )
 
     def test_recursive_symlink_is_not_copied(self):
         os.mkdir(os.path.join(self.source, "new_dir"))
@@ -551,6 +589,17 @@ class TestConfigReloader(TestCase):
         tm.apply_new_config()
         self.assertTrue(os.path.exists(self.error_file))
         with open(self.error_file) as fp:
+            self.assertIn("Rsync error", fp.read())
+
+    def test_rsync_error_is_placed_in_custom_error_file(self):
+        safe_copy_files = self.set_up_patch("nginx_config_reloader.safe_copy_files")
+        safe_copy_files.side_effect = OSError("Rsync error")
+
+        tm = self._get_nginx_config_reloader_instance(error_file=self.custom_error_name)
+        tm.apply_new_config()
+
+        self.assertTrue(os.path.exists(self.custom_error_file))
+        with open(self.custom_error_file) as fp:
             self.assertIn("Rsync error", fp.read())
 
     def test_reloader_doesnt_crash_if_source_dir_is_empty(self):
@@ -692,12 +741,14 @@ class TestConfigReloader(TestCase):
         no_magento_config=False,
         no_custom_config=False,
         magento2_flag=None,
+        error_file=nginx_config_reloader.ERROR_FILE,
     ):
         return nginx_config_reloader.NginxConfigReloader(
             no_magento_config=no_magento_config,
             no_custom_config=no_custom_config,
             dir_to_watch=self.source,
             magento2_flag=magento2_flag,
+            error_file=error_file,
         )
 
     def _write_file(self, name, contents):

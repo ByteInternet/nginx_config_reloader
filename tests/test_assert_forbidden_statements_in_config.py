@@ -4,7 +4,11 @@ from subprocess import CalledProcessError, check_output
 
 import pytest
 
-from nginx_config_reloader import FORBIDDEN_CONFIG_REGEX, NginxConfigReloader
+from nginx_config_reloader import (
+    ERROR_FILE,
+    FORBIDDEN_CONFIG_REGEX,
+    NginxConfigReloader,
+)
 from tests.testcase import TestCase
 
 # Skip marker for tests that require grep -P (PCRE support, not available on macOS)
@@ -15,6 +19,7 @@ requires_pcre_grep = pytest.mark.skipif(
 
 class TestAssertNoForbiddenStatementsInConfig(TestCase):
     def setUp(self):
+        self.custom_error_file = "nginx_error_output.hnclusterweb1"
         self.isdir = self.set_up_patch("nginx_config_reloader.os.path.isdir")
         self.isdir.return_value = True
         self.check_output = self.set_up_patch(
@@ -31,6 +36,22 @@ class TestAssertNoForbiddenStatementsInConfig(TestCase):
         )
 
         self.assertFalse(self.check_output.called)
+
+    def test_check_no_forbidden_config_excludes_default_and_custom_error_files(self):
+        reloader = NginxConfigReloader(
+            dir_to_watch="/tmp/nginx", error_file=self.custom_error_file
+        )
+
+        reloader.check_no_forbidden_config_directives_are_present()
+
+        self.assertEqual(
+            len(self.check_output.call_args_list), len(FORBIDDEN_CONFIG_REGEX)
+        )
+        for call_args in self.check_output.call_args_list:
+            command = call_args.args[0]
+            self.assertIn(f"--exclude={ERROR_FILE}", command)
+            self.assertIn(f"--exclude={self.custom_error_file}", command)
+            self.assertIn("'/tmp/nginx'", command)
 
     @requires_pcre_grep
     def test_include_prevention_legal_includes(self):

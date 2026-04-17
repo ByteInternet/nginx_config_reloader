@@ -60,6 +60,11 @@ class TestParseNginxConfigReloaderArguments(TestCase):
                 help="Disable DBus interface",
                 default=False,
             ),
+            call(
+                "--error-file",
+                help="File name for error output",
+                default=nginx_config_reloader.ERROR_FILE,
+            ),
         ]
         self.assertEqual(
             self.parser.return_value.add_argument.mock_calls, expected_calls
