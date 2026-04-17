@@ -30,5 +30,8 @@ dev = [
     "pyupgrade>=3.21.2",
 ]
 
+[tool.pyright]
+typeCheckingMode = "basic"
+
 [tool.isort]
 profile = "black"  # Make isort compatible with black
