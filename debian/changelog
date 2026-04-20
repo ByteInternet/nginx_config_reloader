@@ -1,4 +1,4 @@
-nginx-config-reloader (20260420.145326) UNRELEASED; urgency=medium
+nginx-config-reloader (20260420.165948) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -109,8 +109,9 @@ nginx-config-reloader (20260420.145326) UNRELEASED; urgency=medium
   * Add support for custom nginx error filename
   * d/control: Add pybuild-plugin-pyproject to build deps
   * pyproject: Set setuptools.packages
+  * pyproject: Fix setuptools.packages
 
- -- Hypernode team <hypernode@byte.nl>  Mon, 20 Apr 2026 14:53:29 +0200
+ -- Hypernode team <hypernode@byte.nl>  Mon, 20 Apr 2026 16:59:50 +0200
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
