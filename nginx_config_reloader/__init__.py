@@ -1,18 +1,16 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
 
 import argparse
 import fnmatch
 import logging
-import logging.handlers
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
-from typing import Optional
 
 from dasbus.loop import EventLoop
 from dasbus.signal import Signal
@@ -34,6 +32,7 @@ from nginx_config_reloader.settings import (
     MAIN_CONFIG_DIR,
     NGINX,
     NGINX_PID_FILE,
+    SYNC_IGNORE_FILES,
     UNPRIVILEGED_GID,
     UNPRIVILEGED_UID,
     WATCH_IGNORE_FILES,
@@ -41,18 +40,19 @@ from nginx_config_reloader.settings import (
 from nginx_config_reloader.utils import directory_is_unmounted
 
 logger = logging.getLogger(__name__)
-dbus_loop: Optional[EventLoop] = None
+dbus_loop: EventLoop | None = None
 
 
 class NginxConfigReloader(FileSystemEventHandler):
     def __init__(
         self,
         logger=None,
-        no_magento_config=False,
-        no_custom_config=False,
-        dir_to_watch=DIR_TO_WATCH,
-        magento2_flag=None,
-        use_systemd=False,
+        no_magento_config: bool = False,
+        no_custom_config: bool = False,
+        dir_to_watch: str = DIR_TO_WATCH,
+        magento2_flag: str | None = None,
+        use_systemd: bool = False,
+        error_file: str = ERROR_FILE,
     ):
         """Constructor called by ProcessEvent
 
@@ -61,6 +61,7 @@ class NginxConfigReloader(FileSystemEventHandler):
         :param bool no_custom_config: True if we should not copy custom configuration
         :param str dir_to_watch: The directory to watch
         :param str magento2_flag: Magento 2 flag location
+        :param str error_file: File name for error output file
         """
         if not logger:
             self.logger = logging
@@ -78,6 +79,7 @@ class NginxConfigReloader(FileSystemEventHandler):
         self.dirty = False
         self.applying = False
         self._on_config_reload = Signal()
+        self.error_file = error_file
 
     def on_deleted(self, event):
         """Triggered by inotify on removal of file or removal of dir
@@ -115,7 +117,8 @@ class NginxConfigReloader(FileSystemEventHandler):
             return
 
         basename = os.path.basename(event.src_path)
-        if not any(fnmatch.fnmatch(basename, pat) for pat in WATCH_IGNORE_FILES):
+        ignore_files = list(WATCH_IGNORE_FILES) + [self.error_file]
+        if not any(fnmatch.fnmatch(basename, pat) for pat in ignore_files):
             self.logger.debug(
                 f"{event.event_type.upper()} detected on {event.src_path}"
             )
@@ -155,29 +158,30 @@ class NginxConfigReloader(FileSystemEventHandler):
                         True    if forbidden config directives are present
                         False   if check couldn't find any forbidden config flags
         """
-        if os.path.isdir(self.dir_to_watch):
-            for rules in FORBIDDEN_CONFIG_REGEX:
-                try:
-                    # error file may contain messages that match a forbidden config pattern
-                    # then validation could fail while the actual config is correct.
-                    # we'll exclude the error file from searching for patterns,
-                    # NOTE: exclusion of error_file requires to ensure the
-                    # file is removed before moving it to nginx conf dir
-                    # @TODO: use Python to search for forbidden configs instead
-                    # of spawning external procs. Will have better testing
-                    # and even may consume less system resources
-                    check_external_resources = (
-                        "[ $(grep -r --exclude={} -P '{}' '{}' | wc -l) -lt 1 ]".format(
-                            ERROR_FILE, rules[0], self.dir_to_watch
-                        )
-                    )
-                    subprocess.check_output(check_external_resources, shell=True)
-                except subprocess.CalledProcessError:
-                    error = "Unable to load config: {}".format(rules[1])
-                    self.logger.error(error)
-                    self.write_error_file(error)
-                    return True
+        if not os.path.isdir(self.dir_to_watch):
             return False
+
+        for pattern, message in FORBIDDEN_CONFIG_REGEX:
+            try:
+                # error file may contain messages that match a forbidden config pattern
+                # then validation could fail while the actual config is correct.
+                # we'll exclude the error file from searching for patterns,
+                # NOTE: exclusion of error_file requires to ensure the
+                # file is removed before moving it to nginx conf dir
+                # @TODO: use Python to search for forbidden configs instead
+                # of spawning external procs. Will have better testing
+                # and even may consume less system resources
+                check_external_resources = "[ $(grep -r --exclude={} --exclude={} -P '{}' '{}' | wc -l) -lt 1 ]".format(
+                    ERROR_FILE, self.error_file, pattern, self.dir_to_watch
+                )
+                subprocess.check_output(check_external_resources, shell=True)
+            except subprocess.CalledProcessError:
+                error = f"Unable to load config: {message}"
+                self.logger.error(error)
+                self.write_error_file(error)
+                return True
+
+        return False
 
     def remove_error_file(self):
         """Try removing the error file. Return True on success or False on errors
@@ -185,7 +189,7 @@ class NginxConfigReloader(FileSystemEventHandler):
         """
         removed = False
         try:
-            os.unlink(os.path.join(self.dir_to_watch, ERROR_FILE))
+            os.unlink(os.path.join(self.dir_to_watch, self.error_file))
             removed = True
         except OSError:
             pass
@@ -234,7 +238,7 @@ class NginxConfigReloader(FileSystemEventHandler):
                     extra_output = e.output
                     if isinstance(e.output, bytes):
                         extra_output = extra_output.decode()
-                    error_output += "\n\n{}".format(extra_output)
+                    error_output += f"\n\n{extra_output}"
                 self.logger.error("Installation of custom config failed")
                 self.restore_old_custom_config_dir()
                 self.write_error_file(error_output)
@@ -284,7 +288,8 @@ class NginxConfigReloader(FileSystemEventHandler):
         if os.path.exists(CUSTOM_CONFIG_DIR):
             shutil.move(CUSTOM_CONFIG_DIR, BACKUP_CONFIG_DIR)
         os.mkdir(CUSTOM_CONFIG_DIR)
-        safe_copy_files(self.dir_to_watch, CUSTOM_CONFIG_DIR)
+        ignore_files = list(SYNC_IGNORE_FILES) + [self.error_file]
+        safe_copy_files(self.dir_to_watch, CUSTOM_CONFIG_DIR, ignore_files)
 
     def restore_old_custom_config_dir(self):
         shutil.rmtree(CUSTOM_CONFIG_DIR)
@@ -304,13 +309,13 @@ class NginxConfigReloader(FileSystemEventHandler):
 
     def get_nginx_pid(self):
         try:
-            with open(NGINX_PID_FILE, "r") as f:
+            with open(NGINX_PID_FILE) as f:
                 return int(f.read())
-        except (IOError, ValueError):
+        except (OSError, ValueError):
             return None
 
     def write_error_file(self, error):
-        with open(os.path.join(self.dir_to_watch, ERROR_FILE), "w") as f:
+        with open(os.path.join(self.dir_to_watch, self.error_file), "w") as f:
             f.write(error)
 
     @property
@@ -368,6 +373,7 @@ def wait_loop(
     recursive_watch=False,
     use_systemd=False,
     no_dbus=False,
+    error_file: str = ERROR_FILE,
 ):
     """Main event loop
 
@@ -384,6 +390,7 @@ def wait_loop(
     :param bool recursive_watch: True if we should watch the dir recursively
     :param use_systemd: True if we should reload nginx using systemd instead of process signal
     :param bool no_dbus: True if we should not use DBus
+    :param str error_file: Error file to write error output to
     :return None:
     """
     dir_to_watch = os.path.abspath(dir_to_watch)
@@ -394,6 +401,7 @@ def wait_loop(
         no_custom_config=no_custom_config,
         dir_to_watch=dir_to_watch,
         use_systemd=use_systemd,
+        error_file=error_file,
     )
 
     if not no_dbus:
@@ -406,9 +414,7 @@ def wait_loop(
         dbus_thread.start()
 
     while not os.path.exists(dir_to_watch):
-        logger.warning(
-            "Configuration dir {} not found, waiting...".format(dir_to_watch)
-        )
+        logger.warning(f"Configuration dir {dir_to_watch} not found, waiting...")
         time.sleep(5)
 
     running = True
@@ -478,6 +484,11 @@ def parse_nginx_config_reloader_arguments():
         help="Disable DBus interface",
         default=False,
     )
+    parser.add_argument(
+        "--error-file",
+        help="File name for error output",
+        default=ERROR_FILE,
+    )
     return parser.parse_args()
 
 
@@ -495,6 +506,11 @@ def main():
     args = parse_nginx_config_reloader_arguments()
     log = get_logger()
 
+    error_file_pattern = re.compile(r"[a-zA-Z0-9_\.]*[a-zA-Z0-9_]+")
+    if not error_file_pattern.fullmatch(args.error_file):
+        log.error(f"Invalid error file name provided: {args.error_file}")
+        return 1
+
     if args.monitor:
         # Track changed files in the nginx config dir and reload on change
         wait_loop(
@@ -505,6 +521,7 @@ def main():
             recursive_watch=args.recursivewatch,
             use_systemd=args.use_systemd,
             no_dbus=args.no_dbus,
+            error_file=args.error_file,
         )
         # should never return
         return 1
@@ -516,6 +533,7 @@ def main():
             no_custom_config=args.nocustomconfig,
             dir_to_watch=args.watchdir,
             use_systemd=args.use_systemd,
+            error_file=args.error_file,
         ).apply_new_config()
         return 0
 

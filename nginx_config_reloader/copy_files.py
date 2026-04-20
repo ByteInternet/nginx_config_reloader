@@ -7,7 +7,10 @@ from nginx_config_reloader.settings import SYNC_IGNORE_FILES
 logger = logging.getLogger(__name__)
 
 
-def safe_copy_files(src, dest):
+def safe_copy_files(src, dest, ignore_files: list[str] | None = None):
+    if not ignore_files:
+        ignore_files = list(SYNC_IGNORE_FILES)
+
     cmd = [
         # Adding a / at the end copies contents of the dir and not the dir itself
         # This is achieved with `os.path.join(x, '')`, which ensures a trailing slash
@@ -22,7 +25,7 @@ def safe_copy_files(src, dest):
         # Dirs default to 0755 to read. Remove setuid bits. Remove executability for others
         '--chmod="D755,-s,Fo-wx"',
     ]
-    cmd.extend(['--exclude="{}"'.format(pattern) for pattern in SYNC_IGNORE_FILES])
+    cmd.extend([f'--exclude="{pattern}"' for pattern in ignore_files])
     cmd = " ".join(cmd)
     # shell=True to ensure globs are not escaped
     check_output(cmd, shell=True, stderr=STDOUT)

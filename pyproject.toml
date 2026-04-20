@@ -27,7 +27,11 @@ dev = [
     "pygobject-stubs>=2.16.0",
     "pytest>=9.0.2",
     "pytest-xdist>=3.8.0",
+    "pyupgrade>=3.21.2",
 ]
+
+[tool.pyright]
+typeCheckingMode = "basic"
 
 [tool.isort]
 profile = "black"  # Make isort compatible with black

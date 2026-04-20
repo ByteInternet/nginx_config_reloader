@@ -11,6 +11,7 @@ from tests.testcase import TestCase
 class TestWaitLoop(TestCase):
     def setUp(self):
         self.source = mkdtemp()
+        self.custom_error_file = "nginx_error_output.hnclusterweb1"
         self.mock_logger = Mock(spec_set=logging.Logger)
         self.nginx_config_reloader = self.set_up_patch(
             "nginx_config_reloader.NginxConfigReloader"
@@ -35,6 +36,7 @@ class TestWaitLoop(TestCase):
             no_custom_config=False,
             dir_to_watch=self.source,
             use_systemd=False,
+            error_file=nginx_config_reloader.ERROR_FILE,
         )
 
     def test_wait_loop_creates_handler_with_custom_arguments(self):
@@ -42,6 +44,7 @@ class TestWaitLoop(TestCase):
             no_magento_config=True,
             no_custom_config=True,
             use_systemd=True,
+            error_file=self.custom_error_file,
         )
 
         self.nginx_config_reloader.assert_called_once_with(
@@ -50,6 +53,7 @@ class TestWaitLoop(TestCase):
             no_custom_config=True,
             dir_to_watch=self.source,
             use_systemd=True,
+            error_file=self.custom_error_file,
         )
 
     def test_wait_loop_sets_up_dbus_when_no_dbus_is_false(self):
