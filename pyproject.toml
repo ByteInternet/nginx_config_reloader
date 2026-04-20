@@ -16,6 +16,9 @@ watchdog = { git = "https://github.com/gorakhargosh/watchdog.git", rev = "f3e78c
 [project.scripts]
 nginx_config_reloader = "nginx_config_reloader:main"
 
+[tool.setuptools]
+packages = ["nginx_config_reloader"]
+
 [build-system]
 requires = ["setuptools>=66", "wheel"]
 build-backend = "setuptools.build_meta"
