@@ -1,4 +1,4 @@
-nginx-config-reloader (20260108.124844) UNRELEASED; urgency=medium
+nginx-config-reloader (20260420.145326) UNRELEASED; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep
@@ -97,7 +97,20 @@ nginx-config-reloader (20260108.124844) UNRELEASED; urgency=medium
   * debian: Remove nginx-config-reloader.upstart
   * build: Update xenial to bookworm
 
- -- Hypernode team <hypernode@byte.nl>  Thu, 08 Jan 2026 12:48:46 +0100
+  [ dependabot[bot] ]
+  * Bump black from 23.1.0 to 24.3.0
+  * Add unit tests for wait_loop
+  * Migrate to uv
+  * Remove setup.py
+  * deps: Remove tox, update dev packages
+  * d/rules: Set pybuild system to pyproject
+  * Add and apply pyupgrade
+  * pyproject: Set pyright to basic mode
+  * Add support for custom nginx error filename
+  * d/control: Add pybuild-plugin-pyproject to build deps
+  * pyproject: Set setuptools.packages
+
+ -- Hypernode team <hypernode@byte.nl>  Mon, 20 Apr 2026 14:53:29 +0200
 
 nginx-config-reloader (20191127.113351) xenial; urgency=medium
 
