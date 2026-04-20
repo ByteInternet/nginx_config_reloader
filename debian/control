@@ -3,7 +3,7 @@ Maintainer: Hypernode Tech Team <tech.team@hypernode.com>
 Section: misc
 Priority: optional
 Standards-Version: 4.7.2
-Build-Depends: debhelper-compat (= 13), python3, python3-watchdog, python3-setuptools, dh-python
+Build-Depends: debhelper-compat (= 13), python3, python3-watchdog, python3-setuptools, dh-python, pybuild-plugin-pyproject
 X-Python3-Version: >= 3.11
 
 Package: nginx-config-reloader
