@@ -53,7 +53,7 @@ FORBIDDEN_CONFIG_REGEX = [
         "You are not allowed to use include or load_module in the nginx config unless the path is relative "
         "or in the main nginx config directory. "
         "See the NGINX dos and don'ts in this article: "
-        "https://support.hypernode.com/knowledgebase/how-to-use-nginx/\n",
+        "https://docs.hypernode.com/hypernode-platform/nginx/how-to-use-nginx.html\n",
     ),
     ("init_by_lua", "Usage of Lua initialization is not allowed.\n"),
 ]
