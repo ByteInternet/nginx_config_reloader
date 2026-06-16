@@ -39,6 +39,40 @@ class TestAfterLoop(TestCase):
         tm.apply_new_config.assert_not_called()
         self.assertFalse(tm.dirty)
 
+    def test_it_restarts_observer_and_reloads_when_symlink_targets_change(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.symlink_targets_changed = Mock(return_value=True)
+        tm.restart_observer = Mock()
+        tm.reload = Mock()
+
+        nginx_config_reloader.after_loop(tm)
+
+        tm.restart_observer.assert_called_once_with()
+        tm.reload.assert_called_once_with()
+        self.assertFalse(tm.dirty)
+
+    def test_it_does_not_restart_observer_when_symlink_targets_are_stable(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.symlink_targets_changed = Mock(return_value=False)
+        tm.restart_observer = Mock()
+        tm.reload = Mock()
+
+        nginx_config_reloader.after_loop(tm)
+
+        tm.restart_observer.assert_not_called()
+        tm.reload.assert_not_called()
+
+    def test_it_swallows_errors_while_restarting_observer(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.symlink_targets_changed = Mock(return_value=True)
+        tm.restart_observer = Mock(side_effect=OSError("inotify watch limit reached"))
+        tm.reload = Mock()
+
+        nginx_config_reloader.after_loop(tm)
+
+        tm.restart_observer.assert_called_once_with()
+        tm.reload.assert_called_once_with()
+
     def _get_nginx_config_reloader_instance(
         self,
         no_magento_config=False,
