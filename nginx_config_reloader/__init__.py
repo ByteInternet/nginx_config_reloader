@@ -42,6 +42,8 @@ from nginx_config_reloader.utils import directory_is_unmounted
 logger = logging.getLogger(__name__)
 dbus_loop: EventLoop | None = None
 
+SymlinkTargets = dict[str, tuple[str, int | None, int | None, int | None]]
+
 
 class NginxConfigReloader(FileSystemEventHandler):
     def __init__(
@@ -78,6 +80,7 @@ class NginxConfigReloader(FileSystemEventHandler):
         self.use_systemd = use_systemd
         self.dirty = False
         self.applying = False
+        self.watched_symlink_targets: SymlinkTargets = {}
         self._on_config_reload = Signal()
         self.error_file = error_file
 
@@ -198,7 +201,7 @@ class NginxConfigReloader(FileSystemEventHandler):
     def apply_new_config(self):
         # Wrapper function to prevent multiple config applications
         if self.applying:
-            logger.debug(f"A config is already being applied. Skipping this one.")
+            logger.debug("A config is already being applied. Skipping this one.")
             return False
 
         self.applying = True
@@ -236,7 +239,7 @@ class NginxConfigReloader(FileSystemEventHandler):
                 error_output = str(e)
                 if hasattr(e, "output"):
                     extra_output = e.output
-                    if isinstance(e.output, bytes):
+                    if isinstance(extra_output, bytes):
                         extra_output = extra_output.decode()
                     error_output += f"\n\n{extra_output}"
                 self.logger.error("Installation of custom config failed")
@@ -340,10 +343,37 @@ class NginxConfigReloader(FileSystemEventHandler):
             self, self.dir_to_watch, recursive=True, follow_symlink=True
         )
         self.observer.start()
+        self.watched_symlink_targets = self.get_symlink_targets()
 
     def stop_observer(self):
         self.observer.stop()
         self.observer.join()
+
+    def restart_observer(self):
+        self.stop_observer()
+        self.start_observer()
+
+    def get_symlink_targets(self):
+        targets: SymlinkTargets = {}
+        for root, dirnames, _ in os.walk(self.dir_to_watch, followlinks=True):
+            for dirname in dirnames:
+                path = os.path.join(root, dirname)
+                if not os.path.islink(path):
+                    continue
+                try:
+                    st = os.stat(path)
+                    targets[path] = (
+                        os.path.realpath(path),
+                        st.st_dev,
+                        st.st_ino,
+                        st.st_ctime_ns,
+                    )
+                except OSError:
+                    targets[path] = (os.path.realpath(path), None, None, None)
+        return targets
+
+    def symlink_targets_changed(self):
+        return self.get_symlink_targets() != self.watched_symlink_targets
 
 
 class ListenTargetTerminated(BaseException):
@@ -351,16 +381,27 @@ class ListenTargetTerminated(BaseException):
 
 
 def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
+    if nginx_config_reloader.symlink_targets_changed():
+        nginx_config_reloader.logger.info(
+            "Symlink target changed under watched dir, restarting observer"
+        )
+        try:
+            nginx_config_reloader.restart_observer()
+        except Exception as e:
+            logger.exception(e)
+        nginx_config_reloader.dirty = True
+
     if nginx_config_reloader.dirty:
         try:
             nginx_config_reloader.reload()
-        except:
+        except Exception:
             pass
         nginx_config_reloader.dirty = False
         nginx_config_reloader.applying = False
 
 
 def dbus_event_loop():
+    global dbus_loop
     dbus_loop = EventLoop()
     dbus_loop.run()
 
