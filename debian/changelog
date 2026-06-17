@@ -1,3 +1,11 @@
+nginx-config-reloader (20260617.130924) bookworm; urgency=medium
+
+  [ Timon de Groot ]
+  * debian: Remove init service definition
+  * reloader: chmod target dir idempotently
+
+ -- Hypernode team <hypernode@byte.nl>  Wed, 17 Jun 2026 13:09:27 +0200
+
 nginx-config-reloader (20260617.092723) bookworm; urgency=medium
 
   [ Jonathan Visser ]

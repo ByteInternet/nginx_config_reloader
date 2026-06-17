@@ -134,7 +134,7 @@ wheels = [
 
 [[package]]
 name = "nginx-config-reloader"
-version = "20260617.92723"
+version = "20260617.130924"
 source = { editable = "." }
 dependencies = [
     { name = "dasbus" },
