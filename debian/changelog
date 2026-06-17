@@ -1,3 +1,14 @@
+nginx-config-reloader (20260617.092550) UNRELEASED; urgency=medium
+
+  [ Jonathan Visser ]
+  * settings: Update nginx docs URL to docs.hypernode.com
+
+  [ Timon de Groot ]
+  * reloader: rearm symlink after target change
+  * d/changelog: set latest release to bookworm
+
+ -- Hypernode team <hypernode@byte.nl>  Wed, 17 Jun 2026 09:26:09 +0200
+
 nginx-config-reloader (20260420.165948) bookworm; urgency=medium
 
   [ Rick van de Loo ]
