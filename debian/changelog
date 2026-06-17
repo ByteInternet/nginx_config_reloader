@@ -1,4 +1,4 @@
-nginx-config-reloader (20260420.165948) UNRELEASED; urgency=medium
+nginx-config-reloader (20260420.165948) bookworm; urgency=medium
 
   [ Rick van de Loo ]
   * add dh-python to cow dep

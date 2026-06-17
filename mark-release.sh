@@ -92,7 +92,7 @@ deb_changelog_updated() {
     # use gbp dch itself to see if there are any changes detected.
     # this way the logic of detecting changes is more consistent with
     # the rest of the system.
-    gbp dch --debian-tag="%(version)s" --debian-branch=master
+    gbp dch --debian-tag="%(version)s" --debian-branch=master --release --distribution bookworm
     # find changelog diff to see if there new commits in changelog.
     # commits are usually added like this to the changelog:
     #  [ author ]
