@@ -119,7 +119,7 @@ mark_release() {
     git add pyproject.toml uv.lock
 
     log "generating debian changelog"
-    gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch=master
+    gbp dch --debian-tag="%(version)s" --new-version=$VERSION --debian-branch=master --release --distribution bookworm
     git add $CHANGELOG
 }
 
