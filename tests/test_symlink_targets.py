@@ -100,6 +100,15 @@ class TestSymlinkTargets(TestCase):
 
         self.assertTrue(handler.symlink_targets_changed())
 
+    def test_changed_is_true_when_target_metadata_changes(self):
+        self._symlink("example.com", self.target_a)
+        handler = self._handler()
+        handler.watched_symlink_targets = handler.get_symlink_targets()
+
+        os.chmod(self.target_a, 0o700)
+
+        self.assertTrue(handler.symlink_targets_changed())
+
     def test_changed_is_true_when_a_new_symlink_appears(self):
         handler = self._handler()
         handler.watched_symlink_targets = handler.get_symlink_targets()

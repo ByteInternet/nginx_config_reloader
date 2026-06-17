@@ -37,7 +37,7 @@ from nginx_config_reloader.settings import (
     UNPRIVILEGED_UID,
     WATCH_IGNORE_FILES,
 )
-from nginx_config_reloader.utils import directory_is_unmounted
+from nginx_config_reloader.utils import apply_chmod, directory_is_unmounted
 
 logger = logging.getLogger(__name__)
 dbus_loop: EventLoop | None = None
@@ -269,19 +269,13 @@ class NginxConfigReloader(FileSystemEventHandler):
 
     def fix_custom_config_dir_permissions(self):
         try:
-            subprocess.check_output(
-                ["chmod", "755", self.dir_to_watch],
-                preexec_fn=as_unprivileged_user,
-            )
+            apply_chmod(self.dir_to_watch, "755", preexec_fn=as_unprivileged_user)
             for root, dirs, _ in os.walk(self.dir_to_watch):
                 for name in dirs:
                     path = os.path.join(root, name)
                     if os.path.islink(path):
                         continue
-                    subprocess.check_output(
-                        ["chmod", "755", path],
-                        preexec_fn=as_unprivileged_user,
-                    )
+                    apply_chmod(path, "755", preexec_fn=as_unprivileged_user)
         except subprocess.CalledProcessError:
             self.logger.info("Failed fixing permissions on watched directory")
 
