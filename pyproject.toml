@@ -1,6 +1,6 @@
 [project]
 name = "nginx-config-reloader"
-version = "20260617.92550"
+version = "20260617.92723"
 description = "nginx config file monitor and reloader"
 readme = "README.md"
 requires-python = ">=3.11"
