@@ -341,7 +341,10 @@ class NginxConfigReloader(FileSystemEventHandler):
 
     def stop_observer(self):
         self.observer.stop()
-        self.observer.join()
+        # An observer that failed to start was never started as a thread,
+        # joining it would raise and prevent any further restart attempts.
+        if self.observer.is_alive():
+            self.observer.join()
 
     def restart_observer(self):
         self.stop_observer()
@@ -382,8 +385,10 @@ def after_loop(nginx_config_reloader: NginxConfigReloader) -> None:
         try:
             nginx_config_reloader.restart_observer()
         except Exception as e:
+            # Retried on the next loop, since the symlink targets still differ
             logger.exception(e)
-        nginx_config_reloader.dirty = True
+        else:
+            nginx_config_reloader.dirty = True
 
     if nginx_config_reloader.dirty:
         try:
