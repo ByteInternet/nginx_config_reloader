@@ -71,6 +71,30 @@ class TestAfterLoop(TestCase):
         nginx_config_reloader.after_loop(tm)
 
         tm.restart_observer.assert_called_once_with()
+
+    def test_it_does_not_reload_when_restarting_observer_fails(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.symlink_targets_changed = Mock(return_value=True)
+        tm.restart_observer = Mock(side_effect=OSError("inotify watch limit reached"))
+        tm.reload = Mock()
+
+        nginx_config_reloader.after_loop(tm)
+
+        tm.reload.assert_not_called()
+        self.assertFalse(tm.dirty)
+
+    def test_it_retries_restarting_observer_on_next_loop_after_failure(self):
+        tm = self._get_nginx_config_reloader_instance()
+        tm.symlink_targets_changed = Mock(return_value=True)
+        tm.restart_observer = Mock(
+            side_effect=[OSError("inotify watch limit reached"), None]
+        )
+        tm.reload = Mock()
+
+        nginx_config_reloader.after_loop(tm)
+        nginx_config_reloader.after_loop(tm)
+
+        self.assertEqual(tm.restart_observer.call_count, 2)
         tm.reload.assert_called_once_with()
 
     def _get_nginx_config_reloader_instance(
